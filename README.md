@@ -10,9 +10,13 @@ Hub HQ is a data system that integrates MobilizeAmerica, EveryAction, and Google
 [You can see what the most basic version of a Hub HQ looks like here!](https://docs.google.com/spreadsheets/d/17a4EJjZkLV6Dazjv1bPk7HCte3QuOY-SmyPHfPyDhyo/edit#gid=390228199)
 There are four tabs in each Hub HQ Google Sheet: 
 1) Interest Form - This tab is connected to a Google Form, which hubs can use to get new sign ups (via social media or the hub map). The hub is free to add new questions after Zipcode, but cannot move or delete any questions/columns before zipcode. Data from this sheet is transferred into the Hub HQ sheet on a daily basis. Any data stored in columns after Zipcode are displayed in the _Interest Form Responses_ column of the Hub HQ sheet, concatenated with each question/response on a seperate line:
+2) 
 ![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
+
 2) Data Entry - A hub can enter data from canvassing or copy and paste data from another Google Sheet into the Data Entry sheet. The data they add is transfered into the Hub HQ sheet on a daily basis. Similarly to Interest Form data, any data in columns to the right of Zipcode are transferred to Hub HQ in a concatenated field. If there are too many lines of data to display, the _Data Entry Sheet Data_ column displays:
+3) 
 ![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
+
 3) Hub HQ - Hub HQ is where a hub's up-to-date members list lives. Hub HQ has a single row/record for each person that has signed up for a MobilizeAmerica event hosted by the hub; filled out the hub's interest form; or had their information entered in the Data Entry Sheet. In addition to the concatenated Data Entry Sheet and Interest Form columns, Hub HQ stores:
   * Contact information
   * Event attendance history
