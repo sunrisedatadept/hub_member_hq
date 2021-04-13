@@ -208,9 +208,9 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             responses = [sheet_dict[hq_row[hq_columns['email']]][signup_columns['Zipcode'] + 1]]
             updates.append(responses)
             del sheet_dict[hq_row[hq_columns['email']]]
-        # When no match is found, create a list/row with empty values/just retain the value on record (which are empty)
+        # When no match is found, create a list/row with empty values
         except KeyError:
-            updates.append([hq_row[hq_columns['last_attendance'] + 2]])
+            updates.append([''])
     # Send the updates to Hub HQ
     #remove column header
     del updates[0]
@@ -309,7 +309,7 @@ def main():
         # Get deduplicated updates dictionary for data entry sheet
         data_entry_dict = construct_update_dictionary(data_entry_data)
         # Push updates to HQ and get left over unmatched rows back (which we append after adding date)
-        data_entry_table = hq_updates(data_entry_dict,hq,'data entry sheet', hq_worksheet)
+        data_entry_table = hq_updates(data_entry_dict,hq,'data entry sheet', hq_worksheet, hub)
         # Append left over data entry sheet rows to HQ
         try:
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], data_entry_table, 'Hub HQ')
