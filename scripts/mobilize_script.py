@@ -184,7 +184,7 @@ select
         ,getdate()) as days_since_last_attendance
 from signups
 group by email
-order by date_joined
+order by date_joined::date
 '''
     # Send query to mobilize
     mobilize_data = rs.query(sql=event_attendance_sql)
