@@ -153,7 +153,7 @@ select
     max(last_name) as last_name,
     email,
     max(phone_number) as phone,
-    min(TO_CHAR(created_date,'MM/DD/YYYY HH24:MI:SS'))::text as date_joined,
+    to_char(min(created_date),'MM/DD/YYYY HH24:MI:SS')::text as date_joined,
     count(*) as total_signups,
     sum
     (
@@ -184,7 +184,7 @@ select
         ,getdate()) as days_since_last_attendance
 from signups
 group by email
-order by date_joined
+order by min(created_date)
 '''
     # Send query to mobilize
     mobilize_data = rs.query(sql=event_attendance_sql)
