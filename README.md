@@ -53,3 +53,6 @@ For each hub, this script takes all of the contacts added to HQ sheet since the 
 
 # Error logging
 In order to prevent a single error from derailing the whole system, the scripts have lots of try and except statements built in, where the except statement captures error messages and then lets the script continue. Errors for the set up scrip are stored in the ['errors' tab of the Hub HQ Set Up Sheet](https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0). Errors for the rest of the scripts are stored in sunrise.hub_hq_errors and logged in the civis run history. EveryAction upsert errors are logged in the sunrise.hq_ea_sync_errors table. 
+
+# Container scripts
+This system runs on Civis container scripts. They are all organized into the Hub HQ project: https://platform.civisanalytics.com/spa/#/projects/146391
