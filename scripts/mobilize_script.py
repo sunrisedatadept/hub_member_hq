@@ -153,7 +153,7 @@ select
     max(last_name) as last_name,
     email,
     max(phone_number) as phone,
-    min(TO_CHAR(created_date,'MM/DD/YYYY HH24:MI:SS'))::text as date_joined,
+    to_char(min(created_date),'MM/DD/YYYY HH24:MI:SS')::text as date_joined,
     count(*) as total_signups,
     sum
     (
