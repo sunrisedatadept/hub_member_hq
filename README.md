@@ -18,12 +18,14 @@ There are four tabs in each Hub HQ Google Sheet:
 ![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
 
 3) Hub HQ - Hub HQ is where a hub's up-to-date members list lives. Hub HQ has a single row/record for each person that has signed up for a MobilizeAmerica event hosted by the hub; filled out the hub's interest form; or had their information entered in the Data Entry Sheet. In addition to the concatenated Data Entry Sheet and Interest Form columns, Hub HQ stores:
-  * Contact information
-  * Event attendance history
-  * A membership "status" summarizing a person's event attendance record
-  * Columns to track one-on-ones and other onboarding information
-  * Columns to allow the hub to phonebank together and record call results
- Hubs can add and edit columns right of column N. 
+     * Contact information
+     * Event attendance history
+     * A membership "status" summarizing a person's event attendance record
+     * Columns to track one-on-ones and other onboarding information
+     * Columns to allow the hub to phonebank together and record call results
+ 
+ Hubs can add and edit columns right of column N. The rest of the sheet is protected
+ 
  4) Contacts from National - This sheet contains contacts from the national database that live near the hub (based on zipcode radius search). There's a column that uses a Vlookup to indicate whether or not that a contact already exists in Hub HQ. There are also columns for phonebanking as a hub and recording call results. 
 
 # setup_script.py
@@ -37,8 +39,17 @@ If the script succeeds for a hub, that hub's info is transferred from the 'set u
 This script pushes new contacts from the national database to a hub's HQ on a daily basis. It looks into hub HQ to find the most recently created/added contact from the national database, and queries Redshift for any contacts who have had addresses created since then that are within the hub's zipcode radius search (zipcode radius search info stored in the ['scheduled' tab of the hub HQ Set Up sheet](https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0)). To prevent duplicates in HQ, the script compares the email address of each new contact to the email addresses of records in HQ and only appends non-matches.
 
 # mobilize_sync.py
-This script updates event attendance history and the "status" column for any rows/records in Hub HQ and creates new records for new contacts. The script gets event attendance data from Mobilize (filtering using host email) for each hub as a table of unique
-contacts with contact info and event attendance history. It compares those contacts to the contacts in the hub's HQ using email address. It updates event attendance history and the "status" column for any contacts that match, and
-appends any new Mobilize contacts that don't match assigning them status of "hot lead."
+This script updates event attendance history and the "status" column for existing rows/records in Hub HQ and creates new records for new contacts. For each hub, the script gets a table of unique contacts who have signed up for the hub's events (filtering based on the host email) with contact info and event attendance history. It compares those contacts to the contacts in the hub's HQ using email address. It updates event attendance history and the "status" column for any contacts that match, and appends any new Mobilize contacts that don't match assigning them status of "hot lead."
 
-# Log Tables
+# sheets_sync.py
+This script takes data from the Data Entry Sheet and the Interest Form sheet, compiles all non-contact information data into a single "concatenated" field for each contact, and then pushes those updates to the _Hub HQ_ sheet for any contact that has a match (based on email). It appends any contacts that do not match/do not yet exist in HQ. If the concatenated field in Hub HQ is displaying data from less than 7 columns of data, it looks like this: 
+![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
+If there is information in more than 7 columns of data for a given contact, then the concatenated field will look like this:
+![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
+
+
+# everyaction_sync.py
+For each hub, this script takes all of the contacts added to HQ sheet since the last time this script ran successfully for that hub, and subscribes them to the hub's EveryAction committee. The control table that stores information about the last successful sync for each hub is sunrise.hq_ea_sync_control_table. Upsert errors are logged in sunrise.hq_ea_sync_errors and all other errors are logged in sunrise.hub_hq_errors 
+
+# Error logging
+In order to prevent a single error from derailing the whole system, the scripts have lots of try and except statements built in, where the except statement captures error messages and then lets the script continue. Errors for the set up scrip are stored in the ['errors' tab of the Hub HQ Set Up Sheet](https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0). Errors for the rest of the scripts are stored in sunrise.hub_hq_errors and logged in the civis run history. EveryAction upsert errors are logged in the sunrise.hq_ea_sync_errors table. 
