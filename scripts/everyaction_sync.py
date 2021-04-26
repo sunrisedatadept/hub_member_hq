@@ -15,8 +15,7 @@ import gspread
 from googleapiclient.errors import HttpError
 from oauth2client.service_account import ServiceAccountCredentials
 import logging
-from datetime import timezone, timedelta, date
-import datetime
+from datetime import timezone, datetime, date
 import os
 import traceback
 import re

@@ -14,8 +14,7 @@ from parsons import GoogleSheets, Redshift, Table
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import logging
-from datetime import timezone, timedelta, date
-import datetime
+from datetime import timezone, datetime, date, timedelta
 import os
 import traceback
 
