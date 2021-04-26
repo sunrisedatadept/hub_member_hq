@@ -230,7 +230,7 @@ def assign_status(hq_row: list, mobilize_dict: dict):
     elif mobilize_dict[hq_email]['total_signups'] <= 2 and time_since_joined > sixtydays:
         status = 'Never got involved'
     else:
-        status = 'error (plz contact cormac@sunrisemovement.org)'
+        status = 'error (plz contact hub-hq-help@sunrisemovement.org)'
     return status
 
 def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
@@ -304,8 +304,18 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
     # create list of lists
     mobilize_data_append = [[mobilize_dict[i][value] for value in columns_to_append] for i in mobilize_dict]
     # insert column headers
-    mobilize_data_append.insert(0,['date_joined', 'first_name', 'last_name', 'email', 'phone', 'total_signups',
-                         'total_attendances', 'first_signup', 'first_attendance', 'days_since_last_signup', 'days_since_last_attendance'])
+    mobilize_data_append.insert(0,['date_joined',
+                                   'first_name',
+                                   'last_name',
+                                   'email',
+                                   'phone',
+                                   'total_signups',
+                                   'total_attendances',
+                                   'first_signup',
+                                   'first_attendance',
+                                   'days_since_last_signup',
+                                   'days_since_last_attendance']
+                                )
     # convert to parsons table
     mobilize_parsons_append = Table(mobilize_data_append)
     # Add column for status and assign value HOT LEAD since this script is running everyday and only people who just
