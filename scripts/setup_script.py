@@ -110,10 +110,7 @@ def zipcode_search(hub: dict, errored_hub_list: list):
         return
 
     # Put all zip codes from zip radius into parentheses for the SQL query below
-    zip_object = '('
-    for i in found:
-        zip_object = zip_object + str(i) + ', '
-    zip_object = zip_object[:-2] + ')'
+    zip_object = '(' + ','.join(found) + ')'
     return zip_object
 
 def query_everyaction(zip_object: str, errors: list, errored_hub_list: list, hub: dict):

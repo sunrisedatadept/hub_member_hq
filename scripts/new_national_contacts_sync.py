@@ -120,10 +120,7 @@ def zipcode_search(hub: dict):
         # Search for zip codes within specified radius
         found = [z.zip for z in zcdb.get_zipcodes_around_radius(hub['zipcode'], hub['search_radius'])]
         # Put all zip codes from zip radius into parentheses for the SQL query below
-        zip_object = '('
-        for i in found:
-            zip_object = zip_object + str(i) + ', '
-        zip_object = zip_object[:-2] + ')'
+        zip_object = '(' + ','.join(found) + ')'
         return zip_object
     # If something was wrong with the zipcode or the zipcode radius, log an error
     except Exception as e:
