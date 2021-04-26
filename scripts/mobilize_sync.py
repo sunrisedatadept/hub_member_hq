@@ -14,7 +14,8 @@ from parsons import GoogleSheets, Redshift, Table
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import logging
-from datetime import timezone, datetime, date, timedelta
+from datetime import timezone, date, timedelta
+import datetime
 import os
 import traceback
 
@@ -164,32 +165,25 @@ select
     to_char(min(created_date),'MM/DD/YYYY HH24:MI:SS')::text as date_joined,
     count(*) as total_signups,
     sum
-    (
-    case 
+    (case 
         when attended = true then 1
         else 0
-    end
-    ) as total_attendances,
+    end) as total_attendances,
     min(start_date::date)::text as first_signup,
     min
-        (
-        case 
+        (case 
             when attended = true then start_date::date
             else null
-        end
-        )::text as first_attendance,
+        end)::text as first_attendance,
     datediff(day,max(start_date)::date,getdate()) as days_since_last_signup,
-    datediff
-        (
+    datediff(
         day
-        ,max
-            (
-            case 
+        ,max(case 
                 when attended = true then start_date
                 else null
-            end
-            )::date
-        ,getdate()) as days_since_last_attendance
+            end)::date
+        ,getdate()
+        ) as days_since_last_attendance
 from signups
 group by email
 order by min(created_date)

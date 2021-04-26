@@ -11,7 +11,8 @@
 import json
 from parsons import GoogleSheets, Redshift, Table
 import gspread
-from datetime import timezone, datetime, date
+from datetime import timezone, date
+import datetime
 from googleapiclient.errors import HttpError
 from oauth2client.service_account import ServiceAccountCredentials
 import logging
