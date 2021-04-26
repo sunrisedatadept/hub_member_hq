@@ -80,12 +80,25 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Put HQ columns into a dictionary to make it easy to reference
 hq_columns = {
-    'date_joined': 4, 'first_name': 0, 'last_name': 1, 'email': 2, 'phone': 3, 'total_signups': 5,
-    'total_attendances': 6, 'first_signup': 7, 'first_attendance': 8, 'last_signup': 9,
+    'date_joined': 4,
+    'first_name': 0,
+    'last_name': 1,
+    'email': 2,
+    'phone': 3,
+    'total_signups': 5,
+    'total_attendances': 6,
+    'first_signup': 7,
+    'first_attendance': 8,
+    'last_signup': 9,
     'last_attendance': 10
 }
 signup_columns = {
-    'Timestamp': 0, 'First Name': 1, 'Last Name': 2, 'Email Address': 3, 'Phone Number': 4, 'Zipcode': 5
+    'Timestamp': 0,
+    'First Name': 1,
+    'Last Name': 2,
+    'Email Address': 3,
+    'Phone Number': 4,
+    'Zipcode': 5
 }
 
 # Get scheduled spreadsheet (hub hqs to loop through)
