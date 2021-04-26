@@ -81,9 +81,18 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Put HQ columns into a dictionary to make it easy to reference
 hq_columns = {
-    'date_joined': 4, 'first_name': 0, 'last_name': 1, 'email': 2, 'phone': 3, 'total_signups': 5,
-    'total_attendances': 6, 'first_signup': 7, 'first_attendance': 8, 'days_since_last_signup': 9,
-    'days_since_last_attendance': 10, 'status':11
+    'date_joined': 4,
+    'first_name': 0,
+    'last_name': 1,
+    'email': 2,
+    'phone': 3,
+    'total_signups': 5,
+    'total_attendances': 6,
+    'first_signup': 7,
+    'first_attendance': 8,
+    'days_since_last_signup': 9,
+    'days_since_last_attendance': 10,
+    'status':11
 }
 # Get 'scheduled' spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')

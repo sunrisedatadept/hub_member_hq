@@ -85,7 +85,13 @@ zcdb = ZipCodeDatabase()
 #-------------------------------------------------------------------------------
 # Define index of each spreadsheet column
 sheet_columns = {
-    'vanid': 0, 'date_joined': 1, 'first': 2, 'last': 3, 'age': 4, 'email': 5, 'phone': 6
+    'vanid': 0,
+    'date_joined': 1,
+    'first': 2,
+    'last': 3,
+    'age': 4,
+    'email': 5,
+    'phone': 6
 }
 # Get scheduled spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
