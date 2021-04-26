@@ -197,6 +197,41 @@ order by min(created_date)
         mobilize_dict = {i['email']: i for i in mobilize_data}
         return mobilize_dict
 
+def assign_status(hq_row: list, mobilize_dict: dict):
+    """
+    Assign a member status based on a person's sign up status
+    :param hq_row: A list analogue to a row in HQ
+    :param mobilize_dict: a dictionary of data from mobilize, where each key is an email address
+    :return: a string with the person's status
+    """
+    # Assign the email, total_signups, datejoined value for each row to an object for readability
+
+    hq_email = hq_row[hq_columns['email']]
+    hq_datejoined = hq_row[hq_columns['date_joined']]
+    now = datetime.datetime.now(timezone.utc)
+    sevendays = datetime.timedelta(days=7)
+    sixtydays = datetime.timedelta(days=60)
+    # Assign status based on event sign up metrics
+    # Start by getting date joined from HQ
+    date_joined = datetime.datetime.strptime(hq_datejoined[:19] + ' +00:00',
+                                             "%m/%d/%Y %H:%M:%S %z")
+    time_since_joined = now - date_joined
+
+    if time_since_joined <= sevendays:
+        status = 'HOT LEAD'
+    elif sevendays < time_since_joined <= sixtydays:
+        status = "Prospective/New Member"
+    elif mobilize_dict[hq_email]['total_signups'] > 2 and \
+            mobilize_dict[hq_email]['days_since_last_signup'] < 60:
+        status = 'Active Member'
+    elif mobilize_dict[hq_email]['total_signups'] > 2 and \
+            mobilize_dict[hq_email]['days_since_last_signup'] >= 60:
+        status = 'Inactive Member'
+    elif mobilize_dict[hq_email]['total_signups'] <= 2 and time_since_joined > sixtydays:
+        status = 'Never got involved'
+    else:
+        status = 'error (plz contact cormac@sunrisemovement.org)'
+    return status
 
 def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
     """
@@ -220,12 +255,11 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
     update_items = update_items[:hq_columns['status']]
     # Open a list for the updates, which we will fill with lists, one for each contact.
     event_attendance_updates = []
-    now = datetime.datetime.now(timezone.utc)
-    sevendays = datetime.timedelta(days=7)
-    sixtydays = datetime.timedelta(days=60)
     # For each row in the hub_hq, if the email is in the mobilize data, then update the appropriate fields/items,
     # otherwise,append a list of blank values
     for hq_row in hq:
+        # Assign the email, total_signups, datejoined value for each row to an object for readability
+        hq_email = hq_row[hq_columns['email']]
         # Update Hub HQ records that have a match in the retrieved mobilize data and remove from the mobilize data
         try:
             # Substitute mobilize value in for each field/list item from the update_items for the match. This will
@@ -234,45 +268,19 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
             for i in update_items:
                 # If the email address of the hq row exists in the mobilize data, append the correct event attendance
                 # value to the list
-                hq_row[hq_columns[i]] = mobilize_dict[hq_row[hq_columns['email']]][i]
-            # Assign status based on event sign up metrics
-            # Start by getting date joined from HQ
-            date_joined = datetime.datetime.strptime(hq_row[hq_columns['date_joined']][:19] + ' +00:00',
-                                                     "%m/%d/%Y %H:%M:%S %z")
-            if now - date_joined <= sevendays:
-                status = 'HOT LEAD'
-            elif sevendays < now - date_joined <= sixtydays:
-                status = "Prospective/New Member"
-            elif mobilize_dict[hq_row[hq_columns['email']]]['total_signups'] > 2 and \
-                     mobilize_dict[hq_row[hq_columns['email']]]['days_since_last_signup'] < 60:
-                status = 'Active Member'
-            elif mobilize_dict[hq_row[hq_columns['email']]]['total_signups'] > 2 and \
-                     mobilize_dict[hq_row[hq_columns['email']]]['days_since_last_signup'] >= 60:
-                status = 'Inactive Member'
-            elif mobilize_dict[hq_row[hq_columns['email']]]['total_signups'] <= 2 and now - date_joined > sixtydays:
-                status = 'Never got involved'
-            else:
-                status = 'error'
-            hq_row[hq_columns['status']] = status
+                hq_row[hq_columns[i]] = mobilize_dict[hq_email][i]
+
+            hq_row[hq_columns['status']] = assign_status(hq_row, mobilize_dict)
             # Reduce to fields that need to be updated
             update_row = hq_row[hq_columns['total_signups']:hq_columns['status']+1]
             # Add to the update list of lists
             event_attendance_updates.append(update_row)
             # Remove contact from mobilize parson's table dictionary, which will be appended to Hub HQ sheet
-            del mobilize_dict[hq_row[hq_columns['email']]]
+            del mobilize_dict[hq_email]
         # When no match is found, create a list/row with empty values/just retain the value on record (which are empty)
 
         except KeyError:
-            date_joined = datetime.datetime.strptime(hq_row[hq_columns['date_joined']][:19] + ' +00:00',
-                                                     "%m/%d/%Y %H:%M:%S %z")
-            if now - date_joined <= sevendays:
-                status = 'HOT LEAD'
-            elif sevendays < now - date_joined <= sixtydays:
-                status = "Prospective/New Member"
-            elif now - date_joined > sixtydays:
-                status = 'Never got involved'
-            else:
-                status = 'error (plz contact cormac@sunrisemovement.org)'
+            status = assign_status(hq_row, mobilize_dict)
             event_attendance_updates.append(hq_row[hq_columns['total_signups']:
                                                    hq_columns['days_since_last_attendance']+1] + [status])
     # Send the updates to Hub HQ
@@ -283,8 +291,16 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
     # value of 'Mobilize' for the source column
 
     # Convert remainder of mobilize dictionary rows to lists, which will be converted to a parsons table
-    columns_to_append = ['first_name', 'last_name', 'email', 'phone', 'date_joined', 'total_signups',
-                         'total_attendances', 'first_signup', 'first_attendance', 'days_since_last_signup', 'days_since_last_attendance']
+    columns_to_append = ['first_name',
+                         'last_name',
+                         'email', 'phone',
+                         'date_joined',
+                         'total_signups',
+                         'total_attendances',
+                         'first_signup',
+                         'first_attendance',
+                         'days_since_last_signup',
+                         'days_since_last_attendance']
     # create list of lists
     mobilize_data_append = [[mobilize_dict[i][value] for value in columns_to_append] for i in mobilize_dict]
     # insert column headers
