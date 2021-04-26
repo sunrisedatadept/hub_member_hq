@@ -143,6 +143,9 @@ def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
             exception = exceptiondata[len(exceptiondata)-1]
             upsert_errors.append([str(date.today()), hub['hub_name'], contact['First Name'],contact['Last Name'],
                                   contact['Email'], response[:999], exception[:999]])
+            logger.info(f'''Error upserting contact for {hub['hub_name']}''')
+            logger.info(json_dict)
+            logger.info(response)
 #  traceback.format_exc(chain = False)]
 
 def last_successful_syncs():
@@ -215,7 +218,7 @@ def main():
             sortkey='date', alter_table=True)
         logger.info(f'''{len(hq_errors)-1} errored contacts''')
     except ValueError:
-        logger.info(f'''All contacts were subscribed to the correct committee without errors''')
+        logger.info(f'''All contacts were subscribed to the correct committees without errors''')
 
 
 

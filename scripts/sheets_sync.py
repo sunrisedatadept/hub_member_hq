@@ -231,13 +231,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
                                          'last_attendance',
                                          'status', 'form_responses', 'data_entry_sheet_data', 'Zipcode'])
         except HttpError as e:
-            logger.info(e)
             error = str(e)
             exceptiondata = traceback.format_exc().splitlines()
             exception = exceptiondata[len(exceptiondata)-1]
             hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception[:999],
                               'if first time run for hub, hub_name will not be in control table'])
             logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated form response column''')
+            logger.info(error)
     # else it's for data entry and put into column N
     elif sheet == 'data entry sheet':
         try:
@@ -264,6 +264,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception[:999],
                               'if first time run for hub, hub_name will not be in control table'])
             logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated data entry column''')
+            logger.info(error)
     # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
     else:
         print('WHYYYY')

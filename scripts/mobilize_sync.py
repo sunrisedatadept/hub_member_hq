@@ -336,12 +336,15 @@ def main():
                     hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
                                       'Error applying event sign up updates', response[:999], exception[:999]])
                     logger.info(f'''Error appending new mobilize contacts for {hub['hub_name']}''')
+                    logger.info(response)
             except Exception as e:
                 response = str(e)
                 exceptiondata = traceback.format_exc().splitlines()
                 exception = exceptiondata[len(exceptiondata) - 1]
                 hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
                                   'Error applying event sign up updates', response[:999], exception[:999]])
+                logger.info(f'''Error updating event history for {hub['hub_name']}''')
+                logger.info(response)
     try:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
             sortkey='date', alter_table=True)

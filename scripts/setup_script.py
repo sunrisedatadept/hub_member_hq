@@ -105,6 +105,8 @@ def zipcode_search(hub: dict, errored_hub_list: list):
         errors.append([str(date.today()), hub['hub_name'], response, exception])
         # Create errored hub list, then append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
+        logger.info(f'''Error for {hub['hub_name']} hub zip code radius search''')
+        logger.info(response)
         return
 
     # Put all zip codes from zip radius into parentheses for the SQL query below
@@ -114,12 +116,13 @@ def zipcode_search(hub: dict, errored_hub_list: list):
     zip_object = zip_object[:-2] + ')'
     return zip_object
 
-def query_everyaction(zip_object: str, errors: list, errored_hub_list: list):
+def query_everyaction(zip_object: str, errors: list, errored_hub_list: list, hub: dict):
     """
     Query EveryAction tables to get contacts in hub's zipcode radius
     :param zip_object: String returned by zipcode_search()
     :param errors: List of errors
     :param errored_hub_list:
+    :param hub: dictionary with values for hub from 'scheduled sheet'
     :return: A parson's table of contacts in this hub's area
     """
     ea_query = f'''
@@ -225,6 +228,8 @@ ORDER BY date_joined
         errors.append([str(date.today()), hub['hub_name'], response, exception])
         # Create errored hub list, then append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
+        logger.info(f'''Error querying national contacts for {hub['hub_name']} hub''')
+        logger.info(response)
         return
 
 
@@ -268,7 +273,7 @@ def main():
         if zip_object is None:
             continue
         else:
-            ntl_contacts = query_everyaction(zip_object, errors, errored_hub_list)
+            ntl_contacts = query_everyaction(zip_object, errors, errored_hub_list, hub)
         # Send that table of contacts to the hub's spreadsheet
         try:
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'Contacts From National')
@@ -279,6 +284,8 @@ def main():
             errors.append([str(date.today()), hub['hub_name'],response, exception])
             # Create errored hub list, then append to list of errored hubs
             errored_hub_list.append(hub['hub_name'])
+            logger.info(f'''Error appending national contacts for {hub['hub_name']} hub''')
+            logger.info(response)
             continue
 
     succeeded_hubs = hubs.select_rows(lambda row: row.hub_name not in errored_hub_list)

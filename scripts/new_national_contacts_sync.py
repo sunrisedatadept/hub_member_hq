@@ -133,6 +133,7 @@ def zipcode_search(hub: dict):
         hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
                           f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
         logger.info(f'''There is an issue with the zip code search for {hub['hub_name']} hub''')
+        logger.info(error)
 
         return
 
@@ -250,6 +251,7 @@ ORDER BY date_joined
         hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
                           f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
         logger.info(f'''There is an issue with the redshift query for {hub['hub_name']} hub''')
+        logger.info(error)
         # return table with 0 rows so script continues instead of erroring
         return Table([['empty']])
 
@@ -323,7 +325,8 @@ def main():
                     hq_errors.append(
                         [str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
                          f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name?'''])
-                    logger.info(f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name?''')
+                    logger.info(f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name''')
+                    logger.info(error)
                     continue
 # Append errors to Redshift errors table
     try:
