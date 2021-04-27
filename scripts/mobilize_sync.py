@@ -104,17 +104,21 @@ hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 #-------------------------------------------------------------------------------
 # Define Functions
 #-------------------------------------------------------------------------------
-def connect_to_hq(hub: dict):
+def connect_to_sheet(hub: dict, sheet: str):
     """
     Connect to HQ worksheet for hub
     :param hub: dictionary for that hub from set up sheet, retrieved by parsons
+    :param sheet: a string indicating if you want the hq sheet 'hq' or the settings sheet 'settings'
     :return: A worksheet object of gspread class worksheet
     """
     # connect to spreadsheet with spread
     spreadsheet = gspread_client.open_by_key(hub['spreadsheet_id'])
     # Get Hub HQ as list of lists
-    hq_worksheet = spreadsheet.worksheet('Hub HQ')
-    return hq_worksheet
+    if sheet == 'hq':
+        worksheet = spreadsheet.worksheet('Hub HQ')
+    elif sheet == 'settings':
+        worksheet = spreadsheet.worksheet('HQ Settings')
+    return worksheet
 
 
 def get_mobilize_data(hub: dict):
@@ -197,11 +201,13 @@ order by min(created_date)
         mobilize_dict = {i['email']: i for i in mobilize_data}
         return mobilize_dict
 
-def assign_status(hq_row: list, mobilize_dict: dict):
+def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inactivity_threshold: int):
     """
     Assign a member status based on a person's sign up status
     :param hq_row: A list analogue to a row in HQ
     :param mobilize_dict: a dictionary of data from mobilize, where each key is an email address
+    :param event_threshold: Num events person must signup for to be considered a member. Comes from settings sheet
+    :param inactivity_threshold: Num days of not signing up for events before being considered inactive
     :return: a string with the person's status
     """
     # Assign the email, total_signups, datejoined value for each row to an object for readability
@@ -210,6 +216,7 @@ def assign_status(hq_row: list, mobilize_dict: dict):
     hq_datejoined = hq_row[hq_columns['date_joined']]
     now = datetime.datetime.now(timezone.utc)
     sevendays = datetime.timedelta(days=7)
+    inactivity_threshold_delta = datetime.timedelta(days=inactivity_threshold)
     sixtydays = datetime.timedelta(days=60)
     # Assign status based on event sign up metrics
     # Start by getting date joined from HQ
@@ -221,19 +228,20 @@ def assign_status(hq_row: list, mobilize_dict: dict):
         status = 'HOT LEAD'
     elif sevendays < time_since_joined <= sixtydays:
         status = "Prospective/New Member"
-    elif mobilize_dict[hq_email]['total_signups'] > 2 and \
-            mobilize_dict[hq_email]['days_since_last_signup'] < 60:
+    elif mobilize_dict[hq_email]['total_signups'] > event_threshold and \
+            mobilize_dict[hq_email]['days_since_last_signup'] < inactivity_threshold:
         status = 'Active Member'
-    elif mobilize_dict[hq_email]['total_signups'] > 2 and \
-            mobilize_dict[hq_email]['days_since_last_signup'] >= 60:
+    elif mobilize_dict[hq_email]['total_signups'] > event_threshold and \
+            mobilize_dict[hq_email]['days_since_last_signup'] >= inactivity_threshold:
         status = 'Inactive Member'
-    elif mobilize_dict[hq_email]['total_signups'] <= 2 and time_since_joined > sixtydays:
+    elif mobilize_dict[hq_email]['total_signups'] <= event_threshold and time_since_joined > sixtydays:
         status = 'Never got involved'
     else:
         status = 'error (plz contact hub-hq-help@sunrisemovement.org)'
     return status
 
-def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
+def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: dict, event_threshold: int,
+                     inactivity_threshold: int):
     """
     Each row/list from the HQ is checked for a match in the mobilize data using email. A new list of lists is created
     where each list is a person's event attendance record from mobilize. If there is an email match then the resulting
@@ -247,6 +255,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
     :param hq: a list of lists, where each innter list is a row from the hub's HQ
     :param hq_columns: dictionary indicating the index of each HQ column in the actual spreadsheet
     :param hq_worksheet: the hq worksheet, which is a gspread class of object
+    :param event_threshold: Num events person must signup for to be considered a member. Comes from settings sheet
+    :param inactivity_threshold: Num days of not signing up for events before being considered inactive
     :return: A parson's table of mobilize records without matches in the HQ
     """
 
@@ -270,7 +280,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
                 # value to the list
                 hq_row[hq_columns[i]] = mobilize_dict[hq_email][i]
 
-            hq_row[hq_columns['status']] = assign_status(hq_row, mobilize_dict)
+            hq_row[hq_columns['status']] = assign_status(hq_row, mobilize_dict, event_threshold,
+                                                         inactivity_threshold)
             # Reduce to fields that need to be updated
             update_row = hq_row[hq_columns['total_signups']:hq_columns['status']+1]
             # Add to the update list of lists
@@ -280,7 +291,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns):
         # When no match is found, create a list/row with empty values/just retain the value on record (which are empty)
 
         except KeyError:
-            status = assign_status(hq_row, mobilize_dict)
+            status = assign_status(hq_row, mobilize_dict, event_threshold, inactivity_threshold)
             event_attendance_updates.append(hq_row[hq_columns['total_signups']:
                                                    hq_columns['days_since_last_attendance']+1] + [status])
     # Send the updates to Hub HQ
@@ -333,7 +344,9 @@ def main():
     # Loop through hubs and update event attendance info for contacts that already exist in HQ and contacts that don't
     for hub in hubs:
         # Connect to the hub's spreadsheet
-        hq_worksheet = connect_to_hq(hub)
+        hq_worksheet = connect_to_sheet(hub,'hq')
+        # Connect to hub's settings sheet
+        settings_sheet = connect_to_sheet(hub,'settings')
         # Get Hub HQ table
         hq = hq_worksheet.get_all_values()
         # Remove first 3 rows (column headers and instuctions/tips)
@@ -350,8 +363,13 @@ def main():
             # Try to send mobilize event attendance updates to HQ and get the left over mobilize rows for which no
             # matches were found in HQ
             try:
+                # Get inactivity threshold that determines when to mark a member as inactive
+                inactivity_threshold = int(settings_sheet.get('D4')[0][0])
+                # Get event threshold that determines how many events someone has to sign up for before being
+                # considered a member
+                event_threshold = int(settings_sheet.get('E4')[0][0])
                 mobilize_parsons_append = mobilize_updates(mobilize_dict, hq, hq_worksheet,
-                                                           hq_columns)
+                                                           hq_columns, event_threshold, inactivity_threshold)
             # Append left over mobilize rows to HQ
                 try:
                     parsons_sheets.append_to_sheet(hub['spreadsheet_id'], mobilize_parsons_append, 'Hub HQ')
