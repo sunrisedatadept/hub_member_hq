@@ -303,9 +303,9 @@ def main():
     sheet_wipe = [['' for i in columns] for i in range(num_hubs)]
     setup_worksheet.update('A2:E', sheet_wipe)
 
-    # Pup hubs whose spreadsheet set up failed back into the blank sheet
+    # Put hubs whose spreadsheet set up failed back into the blank sheet
     if errored_hubs.num_rows == 0:
-        logger.info(f'''Set up succeeded for {errored_hubs.num_rows} hub(s)''')
+        logger.info(f'''Set up failed for {errored_hubs.num_rows} hub(s)''')
         pass
     else:
         parsons_sheets.append_to_sheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', errored_hubs, 'set up')
