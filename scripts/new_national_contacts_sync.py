@@ -131,9 +131,8 @@ def zipcode_search(hub: dict):
     # If something was wrong with the zipcode or the zipcode radius, log an error
     except Exception as e:
         error = str(e)
-        exceptiondata = traceback.format_exc().splitlines()
-        exception = exceptiondata[len(exceptiondata) - 1]
-        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
+        exception = str(traceback.format_exc())[:999]
+        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
                           f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
         logger.info(f'''There is an issue with the zip code search for {hub['hub_name']} hub''')
         logger.info(error)
@@ -249,9 +248,8 @@ ORDER BY date_joined
         return ntl_contacts
     except Exception as e:
         error = str(e)
-        exceptiondata = traceback.format_exc().splitlines()
-        exception = exceptiondata[len(exceptiondata) - 1]
-        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
+        exception = str(traceback.format_exc())[:999]
+        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
                           f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
         logger.info(f'''There is an issue with the redshift query for {hub['hub_name']} hub''')
         logger.info(error)
@@ -323,10 +321,9 @@ def main():
                     national_contacts_worksheet.update(update_range, new_contacts)
                 except Exception as e:
                     error = str(e)
-                    exceptiondata = traceback.format_exc().splitlines()
-                    exception = exceptiondata[len(exceptiondata) - 1]
+                    exception = str(traceback.format_exc())[:999]
                     hq_errors.append(
-                        [str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception[:999],
+                        [str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
                          f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name?'''])
                     logger.info(f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name''')
                     logger.info(error)

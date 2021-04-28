@@ -245,9 +245,8 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
                                          'status', 'form_responses', 'data_entry_sheet_data', 'Zipcode'])
         except HttpError as e:
             error = str(e)
-            exceptiondata = traceback.format_exc().splitlines()
-            exception = exceptiondata[len(exceptiondata)-1]
-            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception[:999],
+            exception = str(traceback.format_exc())[:999]
+            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception,
                               'if first time run for hub, hub_name will not be in control table'])
             logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated form response column''')
             logger.info(error)
@@ -272,9 +271,8 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
                                          'status', 'form_responses', 'data_entry_sheet_data', 'Zipcode'])
         except HttpError as e:
             error = str(e)
-            exceptiondata = traceback.format_exc().splitlines()
-            exception = exceptiondata[len(exceptiondata)-1]
-            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception[:999],
+            exception = str(traceback.format_exc())[:999]
+            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception,
                               'if first time run for hub, hub_name will not be in control table'])
             logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated data entry column''')
             logger.info(error)

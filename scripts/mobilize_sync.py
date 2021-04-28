@@ -377,18 +377,16 @@ def main():
                     logger.info(f'''No new mobilize contacts for {hub['hub_name']}''')
                 except Exception as e:
                     response = str(e)
-                    exceptiondata = traceback.format_exc().splitlines()
-                    exception = exceptiondata[len(exceptiondata) - 1]
+                    exception = str(traceback.format_exc())[:999]
                     hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
-                                      'Error applying event sign up updates', response[:999], exception[:999]])
+                                      'Error applying event sign up updates', response[:999], exception])
                     logger.info(f'''Error appending new mobilize contacts for {hub['hub_name']}''')
                     logger.info(response)
             except Exception as e:
                 response = str(e)
-                exceptiondata = traceback.format_exc().splitlines()
-                exception = exceptiondata[len(exceptiondata) - 1]
+                exception = str(traceback.format_exc())[:999]
                 hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
-                                  'Error applying event sign up updates', response[:999], exception[:999]])
+                                  'Error applying event sign up updates', response[:999], exception])
                 logger.info(f'''Error updating event history for {hub['hub_name']}''')
                 logger.info(response)
     try:

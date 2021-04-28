@@ -100,8 +100,7 @@ def zipcode_search(hub: dict, errored_hub_list: list):
     # If something was wrong with the zipcode or the zipcode radius, log an error
     except Exception as e:
         response = str(e)
-        exceptiondata = traceback.format_exc().splitlines()
-        exception = exceptiondata[len(exceptiondata) - 1]
+        exception = str(traceback.format_exc())[:999]
         errors.append([str(date.today()), hub['hub_name'], response, exception])
         # Create errored hub list, then append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
@@ -220,8 +219,7 @@ ORDER BY date_joined
         return ntl_contacts
     except Exception as e:
         response = str(e)
-        exceptiondata = traceback.format_exc().splitlines()
-        exception = exceptiondata[len(exceptiondata) - 1]
+        exception = str(traceback.format_exc())[:999]
         errors.append([str(date.today()), hub['hub_name'], response, exception])
         # Create errored hub list, then append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
@@ -276,8 +274,7 @@ def main():
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'Contacts From National')
         except Exception as e:
             response = str(e)
-            exceptiondata = traceback.format_exc().splitlines()
-            exception = exceptiondata[len(exceptiondata) - 1]
+            exception = str(traceback.format_exc())[:999]
             errors.append([str(date.today()), hub['hub_name'],response, exception])
             # Create errored hub list, then append to list of errored hubs
             errored_hub_list.append(hub['hub_name'])
