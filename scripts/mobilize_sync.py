@@ -94,6 +94,17 @@ hq_columns = {
     'days_since_last_attendance': 10,
     'status':11
 }
+hq_columns_list = ['first_name',
+                    'last_name',
+                    'email',
+                    'phone',
+                    'date_joined',
+                    'total_signups',
+                    'total_attendances',
+                    'first_signup',
+                    'first_attendance',
+                    'days_since_last_signup',
+                    'days_since_last_attendance']
 # Get 'scheduled' spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
@@ -302,31 +313,10 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     # value of 'Mobilize' for the source column
 
     # Convert remainder of mobilize dictionary rows to lists, which will be converted to a parsons table
-    columns_to_append = ['first_name',
-                         'last_name',
-                         'email', 'phone',
-                         'date_joined',
-                         'total_signups',
-                         'total_attendances',
-                         'first_signup',
-                         'first_attendance',
-                         'days_since_last_signup',
-                         'days_since_last_attendance']
     # create list of lists
-    mobilize_data_append = [[mobilize_dict[i][value] for value in columns_to_append] for i in mobilize_dict]
+    mobilize_data_append = [[mobilize_dict[i][value] for value in hq_columns_list] for i in mobilize_dict]
     # insert column headers
-    mobilize_data_append.insert(0,['date_joined',
-                                   'first_name',
-                                   'last_name',
-                                   'email',
-                                   'phone',
-                                   'total_signups',
-                                   'total_attendances',
-                                   'first_signup',
-                                   'first_attendance',
-                                   'days_since_last_signup',
-                                   'days_since_last_attendance']
-                                )
+    mobilize_data_append.insert(0,hq_columns_list)
     # convert to parsons table
     mobilize_parsons_append = Table(mobilize_data_append)
     # Add column for status and assign value HOT LEAD since this script is running everyday and only people who just
