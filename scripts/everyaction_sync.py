@@ -204,17 +204,17 @@ def main():
 
     rs.copy(Table(control_table_update), 'sunrise.hq_ea_sync_control_table', if_exists='append', distkey='hub',
             sortkey='date_of_ea_sync_success', alter_table=True)
-    try:
+    if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
             sortkey='date', alter_table=True)
         logger.info(f'''{len(hq_errors)-1} errored hubs''')
-    except ValueError:
+    else:
         logger.info('Script executed without issue for all hubs')
-    try:
+    if len(upsert_errors) > 1:
         rs.copy(Table(upsert_errors), 'sunrise.hq_ea_sync_errors', if_exists='append', distkey='error',
             sortkey='date', alter_table=True)
         logger.info(f'''{len(hq_errors)-1} errored contacts''')
-    except ValueError:
+    else:
         logger.info(f'''All contacts were subscribed to the correct committees without errors''')
 
 

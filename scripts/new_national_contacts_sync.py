@@ -329,11 +329,11 @@ def main():
                     logger.info(error)
                     continue
 # Append errors to Redshift errors table
-    try:
+    if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
             sortkey='date', alter_table=True)
         logger.info(f'''{len(hq_errors)-1} errored hubs''')
-    except ValueError:
+    else:
         logger.info('Script executed without issue for all hubs')
 
 

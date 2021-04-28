@@ -252,7 +252,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     Hub HQ. Finally the updates are pushed to the Hub HQ and the mobilize rows for which there were no matches in
     the HQ are returned as a parson's table
     :param mobilize_dict: dictionary of mobilize data where each key is a unique email
-    :param hq: a list of lists, where each innter list is a row from the hub's HQ
+    :param hq: a list of lists, where each inner list is a row from the hub's HQ
     :param hq_columns: dictionary indicating the index of each HQ column in the actual spreadsheet
     :param hq_worksheet: the hq worksheet, which is a gspread class of object
     :param event_threshold: Num events person must signup for to be considered a member. Comes from settings sheet
@@ -349,7 +349,7 @@ def main():
         settings_sheet = connect_to_sheet(hub,'settings')
         # Get Hub HQ table
         hq = hq_worksheet.get_all_values()
-        # Remove first 3 rows (column headers and instuctions/tips)
+        # Remove first 3 rows (column headers and instructions/tips)
         hq = hq[3:]
         # Send for Mobilize Data
         mobilize_dict = get_mobilize_data(hub)
@@ -389,11 +389,11 @@ def main():
                                   'Error applying event sign up updates', response[:999], exception])
                 logger.info(f'''Error updating event history for {hub['hub_name']}''')
                 logger.info(response)
-    try:
+    if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
             sortkey='date', alter_table=True)
         logger.info(f'''{len(hq_errors)-1} errored hubs''')
-    except ValueError:
+    else:
         logger.info('Script executed without issue for all hubs')
 
 
