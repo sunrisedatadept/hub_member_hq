@@ -354,10 +354,10 @@ def main():
             # matches were found in HQ
             try:
                 # Get inactivity threshold that determines when to mark a member as inactive
-                inactivity_threshold = int(settings_sheet.get('D4')[0][0])
+                inactivity_threshold = int(settings_sheet.get('E4')[0][0])
                 # Get event threshold that determines how many events someone has to sign up for before being
                 # considered a member
-                event_threshold = int(settings_sheet.get('E4')[0][0])
+                event_threshold = int(settings_sheet.get('F4')[0][0])
                 mobilize_parsons_append = mobilize_updates(mobilize_dict, hq, hq_worksheet,
                                                            hq_columns, event_threshold, inactivity_threshold)
             # Append left over mobilize rows to HQ
