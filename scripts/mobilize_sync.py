@@ -81,30 +81,38 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Put HQ columns into a dictionary to make it easy to reference
 hq_columns = {
-    'date_joined': 4,
-    'first_name': 0,
-    'last_name': 1,
-    'email': 2,
-    'phone': 3,
-    'total_signups': 5,
-    'total_attendances': 6,
-    'first_signup': 7,
-    'first_attendance': 8,
-    'days_since_last_signup': 9,
-    'days_since_last_attendance': 10,
-    'status':11
+                'date_joined': 5,
+                'first_name': 0,
+                'last_name': 1,
+                'email': 2,
+                'phone': 3,
+                'total_signups': 6,
+                'total_attendances': 7,
+                'first_signup': 8,
+                'first_attendance': 9,
+                'days_since_last_signup': 10,
+                'days_since_last_attendance': 11,
+                'status':4,
+                'zipcode':14,
+                'interest_form_responses':12,
+                'data_entry_data':13
 }
+# Store as list too
 hq_columns_list = ['first_name',
                     'last_name',
                     'email',
                     'phone',
+                    'status',
                     'date_joined',
                     'total_signups',
                     'total_attendances',
                     'first_signup',
                     'first_attendance',
                     'days_since_last_signup',
-                    'days_since_last_attendance']
+                    'days_since_last_attendance',
+                    'interest_form_responses',
+                    'data_entry_data',
+                    'zipcode']
 # Get 'scheduled' spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
@@ -272,8 +280,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     """
 
     # Create a list of the event sign up/attencance summary fields we're going to attenpt to update in the HQ
-    update_items = list(hq_columns.keys())
-    update_items = update_items[:hq_columns['status']]
+    update_items = hq_columns_list[hq_columns['total_signups']:hq_columns['interest_form_responses']]
     # Open a list for the updates, which we will fill with lists, one for each contact.
     event_attendance_updates = []
     # For each row in the hub_hq, if the email is in the mobilize data, then update the appropriate fields/items,
@@ -285,7 +292,6 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
         try:
             # Substitute mobilize value in for each field/list item from the update_items for the match. This will
             # create a whole update list/row
-
             for i in update_items:
                 # If the email address of the hq row exists in the mobilize data, append the correct event attendance
                 # value to the list
@@ -294,7 +300,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
             hq_row[hq_columns['status']] = assign_status(hq_row, mobilize_dict, event_threshold,
                                                          inactivity_threshold)
             # Reduce to fields that need to be updated
-            update_row = hq_row[hq_columns['total_signups']:hq_columns['status']+1]
+            update_row = hq_row[hq_columns['status']:hq_columns['interest_form_responses']]
             # Add to the update list of lists
             event_attendance_updates.append(update_row)
             # Remove contact from mobilize parson's table dictionary, which will be appended to Hub HQ sheet
@@ -303,10 +309,10 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
 
         except KeyError:
             status = assign_status(hq_row, mobilize_dict, event_threshold, inactivity_threshold)
-            event_attendance_updates.append(hq_row[hq_columns['total_signups']:
-                                                   hq_columns['days_since_last_attendance']+1] + [status])
+            event_attendance_updates.append([status] + hq_row[hq_columns['date_joined']:
+                                                              hq_columns['interest_form_responses']])
     # Send the updates to Hub HQ
-    hq_worksheet.update('F4:L', event_attendance_updates)
+    hq_worksheet.update('E4:L', event_attendance_updates)
 
     # Now we convert the remaining Mobilize records, for which no matches were found, and reformat them to a parson's
     # table so that we can append them to the google sheet using the parson's google sheet append method. We also add a
@@ -314,15 +320,17 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
 
     # Convert remainder of mobilize dictionary rows to lists, which will be converted to a parsons table
     # create list of lists
-    mobilize_data_append = [[mobilize_dict[i][value] for value in hq_columns_list] for i in mobilize_dict]
+    hq_columns_wo_status = hq_columns_list[hq_columns['first_name']:hq_columns['status']] + \
+                            hq_columns_list[hq_columns['date_joined']:hq_columns['interest_form_responses']]
+    mobilize_data_append = [[mobilize_dict[i][value] for value in hq_columns_wo_status] for i in mobilize_dict]
     # insert column headers
-    mobilize_data_append.insert(0,hq_columns_list)
+    mobilize_data_append.insert(0,hq_columns_wo_status)
     # convert to parsons table
     mobilize_parsons_append = Table(mobilize_data_append)
     # Add column for status and assign value HOT LEAD since this script is running everyday and only people who just
     # signed up for their first event will be in this append table. The updates section of the script will update their
     # status in the future
-    mobilize_parsons_append.add_column('status','HOT LEAD')
+    mobilize_parsons_append.add_column('status','HOT LEAD',4)
     return mobilize_parsons_append
 
 

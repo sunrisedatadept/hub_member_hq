@@ -72,32 +72,20 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Set global variables used in functions
 #-------------------------------------------------------------------------------
-# Put HQ columns into a dictionary to make it easy to reference
-hq_columns = {
-    'date_joined': 4,
-    'first_name': 0,
-    'last_name': 1,
-    'email': 2,
-    'phone': 3,
-    'total_signups': 5,
-    'total_attendances': 6,
-    'first_signup': 7,
-    'first_attendance': 8,
-    'last_signup': 9,
-    'last_attendance': 10
-}
-# Create list of HQ columns
+# Put HQ columns we want in redshift into a list
 hq_columns_list = ['first_name',
                     'last_name',
                     'email',
                     'phone',
+                    'status',
                     'date_joined',
                     'total_signups',
                     'total_attendances',
                     'first_signup',
                     'first_attendance',
                     'days_since_last_signup',
-                    'days_since_last_attendance']
+                    'days_since_last_attendance'
+                   ]
 # Get scheduled spreadsheet (hub hqs to loop through)
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
@@ -148,6 +136,8 @@ def main():
         hq_table = Table(hq)
         # Add and fill hub column
         hq_table.add_column('hub',hub['hub_name'],0)
+        #Remove the status column, seeing as different hubs might be using different criteria
+        hq_table.remove_column('status')
         # Stack to all_hub_members
         all_hub_members.stack(hq_table)
 

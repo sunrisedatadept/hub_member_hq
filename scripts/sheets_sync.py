@@ -80,18 +80,23 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Put HQ columns into a dictionary to make it easy to reference
 hq_columns = {
-    'date_joined': 4,
-    'first_name': 0,
-    'last_name': 1,
-    'email': 2,
-    'phone': 3,
-    'total_signups': 5,
-    'total_attendances': 6,
-    'first_signup': 7,
-    'first_attendance': 8,
-    'last_signup': 9,
-    'last_attendance': 10
+                'date_joined': 5,
+                'first_name': 0,
+                'last_name': 1,
+                'email': 2,
+                'phone': 3,
+                'total_signups': 6,
+                'total_attendances': 7,
+                'first_signup': 8,
+                'first_attendance': 9,
+                'days_since_last_signup': 10,
+                'days_since_last_attendance': 11,
+                'status': 4,
+                'zipcode': 14,
+                'interest_form_responses': 12,
+                'data_entry_data': 13
 }
+
 signup_columns = {
     'Timestamp': 0,
     'First Name': 1,
@@ -100,6 +105,22 @@ signup_columns = {
     'Phone Number': 4,
     'Zipcode': 5
 }
+
+hq_columns_list = ['first_name',
+                    'last_name',
+                    'email',
+                    'phone',
+                    'status',
+                    'date_joined',
+                    'total_signups',
+                    'total_attendances',
+                    'first_signup',
+                    'first_attendance',
+                    'days_since_last_signup',
+                    'days_since_last_attendance',
+                    'interest_form_responses',
+                    'data_entry_data',
+                    'zipcode',]
 
 # Get scheduled spreadsheet (hub hqs to loop through)
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
@@ -234,15 +255,12 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             hq_worksheet.update('M4:M', updates)
 
             # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
-            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + \
+            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] + \
                                  [sheet_dict[row][signup_columns['Timestamp']]] + ['' for x in range(6)] + \
-                                 ['HOT LEAD'] + [sheet_dict[row][signup_columns['Zipcode'] + 1]] + [''] + \
+                                 [sheet_dict[row][signup_columns['Zipcode'] + 1]] + [''] + \
                                  [sheet_dict[row][signup_columns['Zipcode']]] \
                                  for row in sheet_dict if sheet == 'form responses']
-            sheet_data_append.insert(0, ['first_name', 'last_name', 'email', 'phone', 'date_joined', 'total_signups',
-                                         'total_attendances', 'first_signup', 'first_attendance', 'last_signup',
-                                         'last_attendance',
-                                         'status', 'form_responses', 'data_entry_sheet_data', 'Zipcode'])
+            sheet_data_append.insert(0, hq_columns_list)
         except HttpError as e:
             error = str(e)
             exception = str(traceback.format_exc())[:999]
@@ -260,15 +278,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             # Fill Timestamp column with today's datetime, which EA sync uses
             now = datetime.datetime.now(timezone.utc)
             now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
-            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + \
-                                 [now_str] + ['' for x in range(6)] + ['HOT LEAD'] + [''] + \
+            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] \
+                                 [now_str] + ['' for x in range(7)] + \
                                  [sheet_dict[row][signup_columns['Zipcode'] + 1]] + \
                                  [sheet_dict[row][signup_columns['Zipcode']]] \
                                  for row in sheet_dict]
-            sheet_data_append.insert(0, ['first_name', 'last_name', 'email', 'phone', 'date_joined', 'total_signups',
-                                         'total_attendances', 'first_signup', 'first_attendance', 'last_signup',
-                                         'last_attendance',
-                                         'status', 'form_responses', 'data_entry_sheet_data', 'Zipcode'])
+            sheet_data_append.insert(0, hq_columns_list)
+            
         except HttpError as e:
             error = str(e)
             exception = str(traceback.format_exc())[:999]
