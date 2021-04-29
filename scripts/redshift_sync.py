@@ -72,6 +72,25 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Set global variables used in functions
 #-------------------------------------------------------------------------------
+# Put HQ columns into a dictionary to make it easy to reference
+hq_columns = {
+                'date_joined': 5,
+                'first_name': 0,
+                'last_name': 1,
+                'email': 2,
+                'phone': 3,
+                'total_signups': 6,
+                'total_attendances': 7,
+                'first_signup': 8,
+                'first_attendance': 9,
+                'days_since_last_signup': 10,
+                'days_since_last_attendance': 11,
+                'status':4,
+                'zipcode':14,
+                'interest_form_responses':12,
+                'data_entry_data':13
+}
+
 # Put HQ columns we want in redshift into a list
 hq_columns_list = ['first_name',
                     'last_name',
@@ -84,14 +103,20 @@ hq_columns_list = ['first_name',
                     'first_signup',
                     'first_attendance',
                     'days_since_last_signup',
-                    'days_since_last_attendance'
-                   ]
+                    'days_since_last_attendance',
+                    'interest_form_responses',
+                    'data_entry_data',
+                    'zipcode']
+#Narrow to columns of interest
+hq_columns_narrowed = hq_columns_list[hq_columns['first_name']:hq_columns['interest_form_responses']]
 # Get scheduled spreadsheet (hub hqs to loop through)
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
 hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 # Create parsons table to compile hub hqs into
-all_hub_members = Table([hq_columns_list])
+all_hub_members = Table([hq_columns_narrowed])
+#Remove status column
+all_hub_members.remove_column('status')
 # insert column for hub
 all_hub_members.add_column('hub',index=0)
 
@@ -131,7 +156,7 @@ def main():
         # Remove top three rows (instructional and python/sql unfriendly column headers)
         # And insert python/sql friendly column headers
         hq = hq_all[3:]
-        hq.insert(0, hq_columns_list)
+        hq.insert(0, hq_columns_narrowed)
         # and convert to Parsons table
         hq_table = Table(hq)
         # Add and fill hub column
@@ -144,7 +169,11 @@ def main():
     # Copy to redshift and drop existing table
     # Using email as sort and dist key because the AWS help docs say
     #'If you frequently join a table, specify the join column as both the sort key and the distribution key.'
-    rs.copy(all_hub_members,'sunrise.hq_hub_members',if_exists='drop',sortkey='email',distkey='email')
+    rs.copy(all_hub_members,'sunrise.hq_hub_members',if_exists='drop',sortkey='email',distkey='email',
+            columntypes={'phone':'varchar(12)','date_joined':'timestamp','total_signups':'smallint',
+                         'total_attendances':'smallint','first_signup':'date','last_signup':'date',
+                         'days_since_last_signup':'int','days_since_last_attendance':'int'}
+            )
 
 
 
