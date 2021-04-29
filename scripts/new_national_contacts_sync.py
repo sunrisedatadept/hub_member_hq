@@ -292,7 +292,7 @@ def main():
 
         else:
             # Get date created of last contact dumped into hub hq from national database
-            preexisting_worksheet=connect_to_worksheet(hub,'Contacts From National')
+            preexisting_worksheet=connect_to_worksheet(hub,'National List Signups')
             preexisting_rows = preexisting_worksheet.get_all_values()
             # Convert header rows and everything below into parsons table (top two rows of sheets are instructions)
             preexisting = Table(preexisting_rows[2:])
@@ -315,7 +315,7 @@ def main():
                     # Connect to the set up worksheet via gspread
                     hub_sheet = gspread_client.open_by_key(hub['spreadsheet_id'])
                     # Connect to worksheet
-                    national_contacts_worksheet = hub_sheet.worksheet('Contacts From National')
+                    national_contacts_worksheet = hub_sheet.worksheet('National List Signups')
                     # Post new contacts by updating range without contacts
                     update_range = f'''A{preexisting.num_rows + 2}:G'''
                     national_contacts_worksheet.update(update_range, new_contacts)

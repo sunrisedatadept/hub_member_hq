@@ -1,12 +1,12 @@
 #Civis container script: https://platform.civisanalytics.com/spa/#/scripts/containers/112448113
 
 # This script "sets up" Hub HQs by dumping all the contacts from the national EveryAction that are in the hub's area
-# (based on a zipcode radius search) into the the 'contacts from national sheet.' It does so by looping through each hub
+# (based on a zipcode radius search) into the the 'National List Signups.' It does so by looping through each hub
 # in the 'set up' tabl of the Hub HQ Set Up Sheet
 # (https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0) and for each hub:
 # 1) using the zipcode and zipcode radius provided to find all the zipcodes in the radius
 # 2) Sending a query to REdshift to get all contacts that live in those zipcodes
-# 3) Appending that list of contacts to the 'contacts from national' sheet
+# 3) Appending that list of contacts to the 'National List Signups' sheet
 # If the script succeeds for a hub, that hub's info is transferred from the 'set up' tab to the 'scheduled' tab.
 # If the script fails for a hub, the hub remains in the 'set up' tab and the traceback error is logged in the 'errors'
 # tab of the same spreadsheet
@@ -271,7 +271,7 @@ def main():
             ntl_contacts = query_everyaction(zip_object, errors, errored_hub_list, hub)
         # Send that table of contacts to the hub's spreadsheet
         try:
-            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'Contacts From National')
+            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'National List Signups')
         except Exception as e:
             response = str(e)
             exception = str(traceback.format_exc())[:999]
