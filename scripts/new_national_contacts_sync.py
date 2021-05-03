@@ -103,6 +103,22 @@ hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 #-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
+def log_error(e, script: str, note:str, hub:dict):
+    """
+
+    :param e: the exception
+    :param script: a string with the name of the script where the error occurred
+    :param note: a brief explanation of where the error occured formatted as a string
+    :param hub: a dictionary with information about the hub from the scheduled sheet
+    :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
+    """
+    response = str(e)
+    exception = str(traceback.format_exc())[:999]
+    hq_errors.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    logger.info(f'''{note} for {hub['hub_name']}''')
+    logger.info(response)
+
+
 def connect_to_worksheet(hub: dict, sheet: str):
     """
     Connect to HQ worksheet for hub

@@ -123,6 +123,23 @@ hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 #-------------------------------------------------------------------------------
 # Define Functions
 #-------------------------------------------------------------------------------
+def log_error(e, script: str, note:str, error_table: list, hub:dict):
+    """
+
+    :param e: the exception
+    :param script: a string with the name of the script where the error occurred
+    :param note: a brief explanation of where the error occured formatted as a string
+    :param error_table: the error table to log the error in
+    :param hub: a dictionary with information about the hub from the scheduled sheet
+    :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
+    """
+    response = str(e)
+    exception = str(traceback.format_exc())[:999]
+    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    logger.info(f'''{note} for {hub['hub_name']}''')
+    logger.info(response)
+
+
 def connect_to_sheet(hub: dict, sheet: str):
     """
     Connect to HQ worksheet for hub
@@ -342,7 +359,11 @@ def main():
     # Loop through hubs and update event attendance info for contacts that already exist in HQ and contacts that don't
     for hub in hubs:
         # Connect to the hub's spreadsheet
-        hq_worksheet = connect_to_sheet(hub,'hq')
+        try:
+            hq_worksheet = connect_to_sheet(hub,'hq')
+        except Exception as e:
+            log_error(e, 'mobilize_script', 'Error connecting to sheet',hq_errors, hub)
+            continue
         # Connect to hub's settings sheet
         settings_sheet = connect_to_sheet(hub,'settings')
         # Get Hub HQ table
@@ -374,19 +395,15 @@ def main():
                 except ValueError as e:
                     logger.info(f'''No new mobilize contacts for {hub['hub_name']}''')
                 except Exception as e:
-                    response = str(e)
-                    exception = str(traceback.format_exc())[:999]
-                    hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
-                                      'Error applying event sign up updates', response[:999], exception])
-                    logger.info(f'''Error appending new mobilize contacts for {hub['hub_name']}''')
-                    logger.info(response)
+                    log_error(e,'mobilize_script','Error adding new Mobilize contacts',hq_errors, hub)
+                    # response = str(e)
+                    # exception = str(traceback.format_exc())[:999]
+                    # hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
+                    #                   'Error applying event sign up updates', response[:999], exception])
+                    # logger.info(f'''Error appending new mobilize contacts for {hub['hub_name']}''')
+                    # logger.info(response)
             except Exception as e:
-                response = str(e)
-                exception = str(traceback.format_exc())[:999]
-                hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
-                                  'Error applying event sign up updates', response[:999], exception])
-                logger.info(f'''Error updating event history for {hub['hub_name']}''')
-                logger.info(response)
+                log_error(e, 'mobilize_sync', 'Error updating event history',hq_errors, hub)
     if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
             sortkey='date', alter_table=True)

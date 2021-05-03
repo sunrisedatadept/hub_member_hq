@@ -132,6 +132,23 @@ hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 #-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
+def log_error(e, script: str, note:str, error_table: list, hub:dict):
+    """
+
+    :param e: the exception
+    :param script: a string with the name of the script where the error occurred
+    :param note: a brief explanation of where the error occured formatted as a string
+    :param error_table: the error table to log the error in
+    :param hub: a dictionary with information about the hub from the scheduled sheet
+    :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
+    """
+    response = str(e)
+    exception = str(traceback.format_exc())[:999]
+    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    logger.info(f'''{note} for {hub['hub_name']}''')
+    logger.info(response)
+
+
 def connect_to_worksheet(hub: dict, sheet: str):
     """
     Connect to HQ worksheet for hub
@@ -262,12 +279,8 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
                                  for row in sheet_dict if sheet == 'form responses']
             sheet_data_append.insert(0, hq_columns_list)
         except HttpError as e:
-            error = str(e)
-            exception = str(traceback.format_exc())[:999]
-            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception,
-                              'if first time run for hub, hub_name will not be in control table'])
-            logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated form response column''')
-            logger.info(error)
+            log_error(e, 'sheets_sync', 'Error while updating form response column', hq_errors, hub)
+
     # else it's for data entry and put into column N
     elif sheet == 'data entry sheet':
         try:
@@ -286,12 +299,8 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             sheet_data_append.insert(0, hq_columns_list)
             
         except HttpError as e:
-            error = str(e)
-            exception = str(traceback.format_exc())[:999]
-            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception,
-                              'if first time run for hub, hub_name will not be in control table'])
-            logger.info(f'''Https error while updating {hub['hub_name']} hub's concatenated data entry column''')
-            logger.info(error)
+            log_error(e, 'sheets_sync', 'Error while updating data entry data column', hq_errors, hub)
+
     # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
     else:
         print('WHYYYY')

@@ -94,6 +94,22 @@ control_table_update = [['hub', 'date_of_ea_sync_success']]
 #-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
+def log_error(e, script: str, note:str, error_table: list, hub:dict):
+    """
+
+    :param e: the exception
+    :param script: a string with the name of the script where the error occurred
+    :param note: a brief explanation of where the error occured formatted as a string
+    :param error_table: the error table to log the error in
+    :param hub: a dictionary with information about the hub from the scheduled sheet
+    :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
+    """
+    response = str(e)
+    exception = str(traceback.format_exc())[:999]
+    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    logger.info(f'''{note} for {hub['hub_name']}''')
+    logger.info(response)
+
 def get_hq(spreadsheet_id: str):
     """
     Get all records from hub's HQ
@@ -137,14 +153,9 @@ def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
             van.upsert_person_json(json_dict)
             time.sleep(.5)
         except Exception as e:
-            response = str(e)
-            exception = str(traceback.format_exc())[:999]
-            upsert_errors.append([str(date.today()), hub['hub_name'], contact['First Name'],contact['Last Name'],
-                                  contact['Email'], response[:999], exception])
-            logger.info(f'''Error upserting contact for {hub['hub_name']}''')
+            log_error(e, 'everyaction_sync', str(json_dict), upsert_errors, hub)
             logger.info(json_dict)
-            logger.info(response)
-#  traceback.format_exc(chain = False)]
+
 
 def last_successful_syncs():
     """
@@ -186,11 +197,7 @@ def main():
                                                 "%m/%d/%Y %H:%M:%S %z") > date_last_sync)
         # For hubs who haven't had a sync yet
         except KeyError as e:
-            error = str(e)
-            exception = str(traceback.format_exc())[:999]
-            hq_errors.append([str(date.today()), 'everayction_sync', hub['hub_name'], error[:999], exception,
-                              'if first time run for hub, hub_name will not be in control table'])
-            logger.info(f'''Upserting ALL hq records for {hub['hub_name']} hub''')
+            log_error(e, 'everyaction_sync', 'No record of hub in control table, could be hubs first run', hq_errors, hub)
             # Upsert all contacts in sheet
             new_hq_contacts = hq
 
