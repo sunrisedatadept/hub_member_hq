@@ -68,8 +68,7 @@ rs = Redshift()  # Redshift
 parsons_sheets = GoogleSheets(google_keyfile_dict=creds)
 # Set up google sheets connection for gspread package
 scope = [
-    'https://spreadsheets.google.com/feeds',
-    'https://www.googleapis.com/auth/drive',
+    'https://spreadsheets.google.com/feeds'
 ]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
 gspread_client = gspread.authorize(credentials)

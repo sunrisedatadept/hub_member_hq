@@ -67,8 +67,7 @@ rs = Redshift()
 parsons_sheets = GoogleSheets(google_keyfile_dict=creds)  # Instantiate parsons GSheets class
 # Set up google sheets connection for gspread package
 scope = [
-    'https://spreadsheets.google.com/feeds',
-    'https://www.googleapis.com/auth/drive',
+    'https://spreadsheets.google.com/feeds'
 ]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
 gspread_client = gspread.authorize(credentials)
@@ -189,12 +188,11 @@ def construct_update_dictionary(worksheet: list):
                 # Skip if new column value/item has no data
                 if len(row[i]) == 0:
                     pass
-                # Append new data to existing column/item data
+                # Append new data to existing column/item data if the email field is not empty
                 else:
-                    sheet_dict[row[signup_columns['Email Address']]][i] = \
+                    if len(row[signup_columns['Email Address']]) > 0:
+                        sheet_dict[row[signup_columns['Email Address']]][i] = \
                         sheet_dict[row[signup_columns['Email Address']]][i] + ', ' + row[i]
-            # if zip isn't empty, insert zip
-            # if opt in is true, put it in
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
             sheet_dict[row[signup_columns['Email Address']]] = row
@@ -214,26 +212,23 @@ def construct_update_dictionary(worksheet: list):
         else:
             # First stick the column headers right ahead of the data for the first column after zipcdoe (if there's
             # anything there, otherwise skip it)
-            if len(sheet_dict[contact][signup_columns['Zipcode'] + 1]) > 0:
+            if len(sheet_dict[contact][signup_columns['Zipcode'] + 1]):
                 sheet_dict[contact][signup_columns['Zipcode'] + 1] = worksheet[0][signup_columns['Zipcode'] + 1] + ': ' + \
                                                             sheet_dict[contact][signup_columns['Zipcode'] + 1] + '\n'
-            else:
-                pass
+
             # Stick all the data from all columns together into one column/list item, separating each column's data with a
             # line break. We're sticking all of the items after zipcode into the item immediately after zipcode, so we
             # really only need to loop through the items starting 2 items after zipcde and append them to the item
             # immediately after zipcode
             for i in range(len(sheet_dict[contact]) - signup_columns['Zipcode'] - 2):
                 i = i + signup_columns['Zipcode'] + 2
-                # if the concatenated column values are empty, skip
-                if len(sheet_dict[contact][i]) == 0:
-                    pass
-                # Otherwise stick it all together
-                else:
+                # if the concatenated column values are not empty, compile them
+                if len(sheet_dict[contact][i]) > 0:
                     sheet_dict[contact][signup_columns['Zipcode'] + 1] = \
                         sheet_dict[contact][signup_columns['Zipcode'] + 1] + worksheet[0][i][:20] + ': ' \
                         + sheet_dict[contact][i] + '\n'
-            # Remove all columns after concatenation column
+
+        # Remove all columns after concatenation column
         sheet_dict[contact] = sheet_dict[contact][0:signup_columns['Zipcode'] + 2]
 
     return sheet_dict
@@ -295,7 +290,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             # Fill Timestamp column with today's datetime, which EA sync uses
             now = datetime.datetime.now(timezone.utc)
             now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
-            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] \
+            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +\
                                  [now_str] + ['' for x in range(7)] + \
                                  [sheet_dict[row][signup_columns['Zipcode'] + 1]] + \
                                  [sheet_dict[row][signup_columns['Zipcode']]] \
@@ -305,9 +300,6 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating data entry data column', hq_errors, hub)
 
-    # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
-    else:
-        print('WHYYYY')
     sheet_parsons_append = Table(sheet_data_append)
     return sheet_parsons_append
 

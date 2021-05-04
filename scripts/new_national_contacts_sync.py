@@ -69,8 +69,7 @@ rs = Redshift()
 parsons_sheets = GoogleSheets(google_keyfile_dict=creds)  # Instantiate parsons GSheets class
 # Set up google sheets connection for gspread package
 scope = [
-    'https://spreadsheets.google.com/feeds',
-    'https://www.googleapis.com/auth/drive',
+    'https://spreadsheets.google.com/feeds'
 ]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
 gspread_client = gspread.authorize(credentials)
@@ -294,17 +293,14 @@ def main():
     # Loop through hubs from spreadsheet and dump contacts from ntl database into respective spreadsheet
     for hub in hubs:
         zip_object = zipcode_search(hub)
-        if zip_object is None:
-            continue
-
-        else:
+        if zip_object:
             # Get date created of last contact dumped into hub hq from national database
             preexisting_worksheet=connect_to_worksheet(hub,'National List Signups')
             preexisting_rows = preexisting_worksheet.get_all_values()
             # Convert header rows and everything below into parsons table (top two rows of sheets are instructions)
             preexisting = Table(preexisting_rows[2:])
             last_one = preexisting.num_rows - 1
-            last_date = preexisting[last_one]['Date Added']
+            last_date = preexisting[last_one]['Date Joined']
 
             # This is the query used to get contacts from the national database.
             ntl_contacts = query_everyaction(zip_object, last_date, hub)
@@ -313,7 +309,7 @@ def main():
 
             else:
                 # Create dictionary for pre-existing ntl contacts in HQ
-                preexisting_dict = {i['Email']: i['Date Added'] for i in
+                preexisting_dict = {i['Email']: i['Date Joined'] for i in
                                     preexisting}
                 # Get contacts added since last contact in HQ and compare new contacts to pre-existing, return non-matches
                 new_contacts = find_new_contacts(preexisting_dict, ntl_contacts)
@@ -324,12 +320,13 @@ def main():
                     # Connect to worksheet
                     national_contacts_worksheet = hub_sheet.worksheet('National List Signups')
                     # Post new contacts by updating range without contacts
-                    update_range = f'''A{preexisting.num_rows + 2}:G'''
+                    update_range = f'''A{preexisting.num_rows + 4}:G'''
                     national_contacts_worksheet.update(update_range, new_contacts)
                 except Exception as e:
                     log_error(e, 'new_national_contacts_sync', 'Error appending contacts to sheet', hq_errors, hub)
                     continue
-
+        else:
+            continue
 # Append errors to Redshift errors table
     if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
