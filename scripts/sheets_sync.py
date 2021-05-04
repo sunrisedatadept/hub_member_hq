@@ -193,6 +193,8 @@ def construct_update_dictionary(worksheet: list):
                 else:
                     sheet_dict[row[signup_columns['Email Address']]][i] = \
                         sheet_dict[row[signup_columns['Email Address']]][i] + ', ' + row[i]
+            # if zip isn't empty, insert zip
+            # if opt in is true, put it in
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
             sheet_dict[row[signup_columns['Email Address']]] = row
@@ -256,11 +258,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
         try:
             # Update each field/list item from the update_items for the match. This will create a whole update list/row
             sheet_dict[hq_row[hq_columns['email']]]
+            # if then magic for opt-ins and zipcodes
             responses = [sheet_dict[hq_row[hq_columns['email']]][signup_columns['Zipcode'] + 1]]
             updates.append(responses)
             del sheet_dict[hq_row[hq_columns['email']]]
         # When no match is found, create a list/row with empty values
         except KeyError:
+            # Need to append what is there if we're going for opt-ins and zip
             updates.append([''])
     # Send the updates to Hub HQ
     #remove column header

@@ -103,18 +103,19 @@ hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 #-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
-def log_error(e, script: str, note:str, hub:dict):
+def log_error(e, script: str, note:str, error_table: list, hub:dict):
     """
 
     :param e: the exception
     :param script: a string with the name of the script where the error occurred
     :param note: a brief explanation of where the error occured formatted as a string
+    :param error_table: the error table to log the error in
     :param hub: a dictionary with information about the hub from the scheduled sheet
     :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
     """
     response = str(e)
     exception = str(traceback.format_exc())[:999]
-    hq_errors.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
     logger.info(f'''{note} for {hub['hub_name']}''')
     logger.info(response)
 
@@ -146,12 +147,7 @@ def zipcode_search(hub: dict):
         return zip_object
     # If something was wrong with the zipcode or the zipcode radius, log an error
     except Exception as e:
-        error = str(e)
-        exception = str(traceback.format_exc())[:999]
-        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
-                          f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
-        logger.info(f'''There is an issue with the zip code search for {hub['hub_name']} hub''')
-        logger.info(error)
+        log_error(e, 'new_national_contacts_sync', 'Zipcode search error', hq_errors, hub)
 
         return
 
@@ -263,12 +259,7 @@ ORDER BY date_joined
         ntl_contacts = rs.query(ea_query)
         return ntl_contacts
     except Exception as e:
-        error = str(e)
-        exception = str(traceback.format_exc())[:999]
-        hq_errors.append([str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
-                          f'''There is an issue with the zip code search for {hub['hub_name']} hub'''])
-        logger.info(f'''There is an issue with the redshift query for {hub['hub_name']} hub''')
-        logger.info(error)
+        log_error(e, 'new_national_contacts_sync', 'Issue with redshift query', hq_errors, hub)
         # return table with 0 rows so script continues instead of erroring
         return Table([['empty']])
 
@@ -336,14 +327,9 @@ def main():
                     update_range = f'''A{preexisting.num_rows + 2}:G'''
                     national_contacts_worksheet.update(update_range, new_contacts)
                 except Exception as e:
-                    error = str(e)
-                    exception = str(traceback.format_exc())[:999]
-                    hq_errors.append(
-                        [str(date.today()), 'new_ntl_contacts_sync', hub['hub_name'], error[:999], exception,
-                         f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name?'''])
-                    logger.info(f'''Issue pushing new contacts to {hub['hub_name']} hub's sheet. Check worksheet name''')
-                    logger.info(error)
+                    log_error(e, 'new_national_contacts_sync', 'Error appending contacts to sheet', hq_errors, hub)
                     continue
+
 # Append errors to Redshift errors table
     if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
