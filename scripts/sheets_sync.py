@@ -175,12 +175,15 @@ def construct_update_dictionary(worksheet: list):
     # Open a dictionary, which will be transformed into a deduplicated dictionary of form responses/data entry data and
     # later be subset to only contain records that aren't HQ
     sheet_dict = {}
+    # Remove the column header from the list of lists
+    form_submitions = worksheet[1:]
     # Loop through the form responses/data entry sheet and create a new row/list in the sheet_dict if a row/list doesn't
     # yet exist for the contact, or update the row/list if it already exists in sheet_dict
-    for row in worksheet:
+    for row in form_submitions:
         # If the row/list already exists, for each column/list item, append data from the new row to the existing row
+        email_address = row[signup_columns['Email Address']]
         try:
-            sheet_dict[row[signup_columns['Email Address']]]
+            sheet_dict[email_address]
             # only update columns/items past zipcode column/item
             for i in range(len(row) - signup_columns['zipcode'] + 1):
                 # jump to column/item right after zipcode column/item
@@ -190,16 +193,14 @@ def construct_update_dictionary(worksheet: list):
                     pass
                 # Append new data to existing column/item data if the email field is not empty
                 else:
-                    if len(row[signup_columns['Email Address']]) > 0:
-                        sheet_dict[row[signup_columns['Email Address']]][i] = \
-                        sheet_dict[row[signup_columns['Email Address']]][i] + ', ' + row[i]
+                    if len(email_address) > 0:
+                        sheet_dict[email_address][i] = \
+                        sheet_dict[email_address][i] + ', ' + row[i]
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
-            sheet_dict[row[signup_columns['Email Address']]] = row
-    #        continue
+            sheet_dict[email_address] = row
 
-    # Delete the row/list with the column headers
-    del sheet_dict['Email Address']
+
 
     # Take all of the columns/list items after zipcode and concatenate them together with line breaks and column headers
     # right after the line breaks and right before the data for those columns
@@ -218,7 +219,7 @@ def construct_update_dictionary(worksheet: list):
             # field
             concat_column = signup_columns['Zipcode'] + 1
             num_columns = len(sheet_dict[contact])
-            i=concat_column
+            i = concat_column
             while i < num_columns:
                 # if the concatenated column values are not empty, compile them. First column gets special treatment
                 if len(sheet_dict[contact][i]) > 0 and i == concat_column:
@@ -250,14 +251,16 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     # For each row in the hub_hq, if the contact is in the form data, then update the appropriate fields/items,
     # otherwise, pass
     for hq_row in hq:
+        hq_email = hq_row[hq_columns['email']]
+        concat_column_idx = signup_columns['Zipcode'] + 1
         # Update Hub HQ records that have a match in the retrieved form data and remove from the form dictionary
         try:
             # Update each field/list item from the update_items for the match. This will create a whole update list/row
-            sheet_dict[hq_row[hq_columns['email']]]
+            sheet_dict[hq_email]
             # if then magic for opt-ins and zipcodes
-            responses = [sheet_dict[hq_row[hq_columns['email']]][signup_columns['Zipcode'] + 1]]
+            responses = [sheet_dict[hq_email][concat_column_idx]]
             updates.append(responses)
-            del sheet_dict[hq_row[hq_columns['email']]]
+            del sheet_dict[hq_email]
         # When no match is found, create a list/row with empty values
         except KeyError:
             # Need to append what is there if we're going for opt-ins and zip
@@ -274,7 +277,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
             sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] + \
                                  [sheet_dict[row][signup_columns['Timestamp']]] + ['' for x in range(6)] + \
-                                 [sheet_dict[row][signup_columns['Zipcode'] + 1]] + [''] + \
+                                 [sheet_dict[row][concat_column_idx]] + [''] + \
                                  [sheet_dict[row][signup_columns['Zipcode']]] \
                                  for row in sheet_dict if sheet == 'form responses']
             sheet_data_append.insert(0, hq_columns_list)
@@ -293,7 +296,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
             sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +\
                                  [now_str] + ['' for x in range(7)] + \
-                                 [sheet_dict[row][signup_columns['Zipcode'] + 1]] + \
+                                 [sheet_dict[row][concat_column_idx]] + \
                                  [sheet_dict[row][signup_columns['Zipcode']]] \
                                  for row in sheet_dict]
             sheet_data_append.insert(0, hq_columns_list)
@@ -321,7 +324,7 @@ def main():
         interest_form_responses = connect_to_worksheet(hub, 'Interest Form')
         # Get sign up sheet values
         signup_form_responses = interest_form_responses.get_all_values()
-        signup_form_responses = signup_form_responses[2:]
+        signup_form_responses = signup_form_responses[1:]
         # Get deduplicated updates dictionary for form responses
         signup_form_dict = construct_update_dictionary(signup_form_responses)
         # Push updates to HQ and get left over unmatched rows back (which we append immediately after)
