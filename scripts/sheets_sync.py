@@ -204,29 +204,30 @@ def construct_update_dictionary(worksheet: list):
     # Take all of the columns/list items after zipcode and concatenate them together with line breaks and column headers
     # right after the line breaks and right before the data for those columns
     for contact in sheet_dict:
-        if sum(1 for i in sheet_dict[contact] if len(i)>0) > 13:
-            # If there are too many fields to concatenate into one cell, give them this message
+        # check how many fields of data there are for the contact
+        num_cols_with_data = sum(1 for i in sheet_dict[contact] if len(i)>0)
+        if num_cols_with_data > 13:
+            # If there are too many fields to concatenate into one cell, display this message
             sheet_dict[contact][signup_columns['Zipcode'] + 1] = 'Too much data to display \n' \
                                                                  'Use ctr + f to find persons data\n' \
                                                                  'in Interest Form or Data Entry sheet'
         else:
-            # First stick the column headers right ahead of the data for the first column after zipcdoe (if there's
-            # anything there, otherwise skip it)
-            if len(sheet_dict[contact][signup_columns['Zipcode'] + 1]):
-                sheet_dict[contact][signup_columns['Zipcode'] + 1] = worksheet[0][signup_columns['Zipcode'] + 1] + ': ' + \
-                                                            sheet_dict[contact][signup_columns['Zipcode'] + 1] + '\n'
-
             # Stick all the data from all columns together into one column/list item, separating each column's data with a
             # line break. We're sticking all of the items after zipcode into the item immediately after zipcode, so we
-            # really only need to loop through the items starting 2 items after zipcde and append them to the item
-            # immediately after zipcode
-            for i in range(len(sheet_dict[contact]) - signup_columns['Zipcode'] - 2):
-                i = i + signup_columns['Zipcode'] + 2
-                # if the concatenated column values are not empty, compile them
-                if len(sheet_dict[contact][i]) > 0:
-                    sheet_dict[contact][signup_columns['Zipcode'] + 1] = \
-                        sheet_dict[contact][signup_columns['Zipcode'] + 1] + worksheet[0][i][:20] + ': ' \
+            # really only need to loop through the items starting 1 item after zipcde and append them to the concatenated
+            # field
+            concat_column = signup_columns['Zipcode'] + 1
+            num_columns = len(sheet_dict[contact])
+            i=concat_column
+            while i < num_columns:
+                # if the concatenated column values are not empty, compile them. First column gets special treatment
+                if len(sheet_dict[contact][i]) > 0 and i == concat_column:
+                    sheet_dict[contact][i] = worksheet[0][i][:20]+': ' + sheet_dict[contact][i] + '\n'
+                elif len(sheet_dict[contact][i]) > 0:
+                    sheet_dict[contact][concat_column] = sheet_dict[contact][concat_column] + worksheet[0][i][:20]+': '\
                         + sheet_dict[contact][i] + '\n'
+                # Go to next columm
+                i=i+1
 
         # Remove all columns after concatenation column
         sheet_dict[contact] = sheet_dict[contact][0:signup_columns['Zipcode'] + 2]
@@ -320,7 +321,7 @@ def main():
         interest_form_responses = connect_to_worksheet(hub, 'Interest Form')
         # Get sign up sheet values
         signup_form_responses = interest_form_responses.get_all_values()
-        signup_form_responses = signup_form_responses[1:]
+        signup_form_responses = signup_form_responses[2:]
         # Get deduplicated updates dictionary for form responses
         signup_form_dict = construct_update_dictionary(signup_form_responses)
         # Push updates to HQ and get left over unmatched rows back (which we append immediately after)
@@ -349,12 +350,12 @@ def main():
         except ValueError:
             logger.info(f'''No new data entries for {hub['hub_name']}''')
         # Send errors table to redshift
-        if len(hq_errors) > 1:
-            rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
-                    sortkey='date', alter_table=True)
-            logger.info(f'''{len(hq_errors) - 1} errored hubs''')
-        else:
-            logger.info('Script executed without issue for all hubs')
+    if len(hq_errors) > 1:
+        rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
+                sortkey='date', alter_table=True)
+        logger.info(f'''{len(hq_errors) - 1} errored hubs''')
+    else:
+        logger.info('Script executed without issue for all hubs')
 
 
 
