@@ -194,8 +194,7 @@ def construct_update_dictionary(worksheet: list):
                 # Append new data to existing column/item data if the email field is not empty
                 else:
                     if email_address:
-                        sheet_dict[email_address][i] = \
-                        sheet_dict[email_address][i] + ', ' + row[i]
+                        sheet_dict[email_address][i] = sheet_dict[email_address][i] + ', ' + row[i]
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
             sheet_dict[email_address] = row
@@ -209,9 +208,9 @@ def construct_update_dictionary(worksheet: list):
         num_cols_with_data = sum(1 for i in sheet_dict[contact] if len(i)>0)
         if num_cols_with_data > 13:
             # If there are too many fields to concatenate into one cell, display this message
-            sheet_dict[contact][signup_columns['Zipcode'] + 1] = 'Too much data to display \n' \
-                                                                 'Use ctr + f to find persons data\n' \
-                                                                 'in Interest Form or Data Entry sheet'
+            sheet_dict[contact][signup_columns['Zipcode'] + 1] = ('Too much data to display \n' 
+                                                                 'Use ctr + f to find persons data\n' 
+                                                                 'in Interest Form or Data Entry sheet')
         else:
             # Stick all the data from all columns together into one column/list item, separating each column's data with a
             # line break. We're sticking all of the items after zipcode into the item immediately after zipcode, so we
@@ -225,8 +224,8 @@ def construct_update_dictionary(worksheet: list):
                 if sheet_dict[contact][i] and i == concat_column:
                     sheet_dict[contact][i] = worksheet[0][i][:20]+': ' + sheet_dict[contact][i] + '\n'
                 elif sheet_dict[contact][i]:
-                    sheet_dict[contact][concat_column] = sheet_dict[contact][concat_column] + worksheet[0][i][:20]+': '\
-                        + sheet_dict[contact][i] + '\n'
+                    sheet_dict[contact][concat_column] = (sheet_dict[contact][concat_column] + worksheet[0][i][:20]+': '
+                        + sheet_dict[contact][i] + '\n')
                 # Go to next columm
                 i=i+1
 
@@ -275,11 +274,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             hq_worksheet.update('M4:M', updates)
 
             # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
-            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] + \
-                                 [sheet_dict[row][signup_columns['Timestamp']]] + ['' for x in range(6)] + \
-                                 [sheet_dict[row][concat_column_idx]] + [''] + \
-                                 [sheet_dict[row][signup_columns['Zipcode']]] \
-                                 for row in sheet_dict if sheet == 'form responses']
+            sheet_data_append = (
+                [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
+                [sheet_dict[row][signup_columns['Timestamp']]] + ['' for x in range(6)] +
+                [sheet_dict[row][concat_column_idx]] + [''] +
+                [sheet_dict[row][signup_columns['Zipcode']]]
+                    for row in sheet_dict if sheet == 'form responses']
+                                )
             sheet_data_append.insert(0, hq_columns_list)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating form response column', hq_errors, hub)
@@ -294,11 +295,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             # Fill Timestamp column with today's datetime, which EA sync uses
             now = datetime.datetime.now(timezone.utc)
             now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
-            sheet_data_append = [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +\
-                                 [now_str] + ['' for x in range(7)] + \
-                                 [sheet_dict[row][concat_column_idx]] + \
-                                 [sheet_dict[row][signup_columns['Zipcode']]] \
-                                 for row in sheet_dict]
+            sheet_data_append = (
+                [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
+                [now_str] + ['' for x in range(7)] +
+                [sheet_dict[row][concat_column_idx]] +
+                [sheet_dict[row][signup_columns['Zipcode']]]
+                    for row in sheet_dict]
+                                )
             sheet_data_append.insert(0, hq_columns_list)
             
         except HttpError as e:

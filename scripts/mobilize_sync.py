@@ -253,6 +253,8 @@ def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inact
     sevendays = datetime.timedelta(days=7)
     inactivity_threshold_delta = datetime.timedelta(days=inactivity_threshold)
     sixtydays = datetime.timedelta(days=60)
+    total_signups = mobilize_dict[hq_email]['total_signups']
+    days_since_last_signup = mobilize_dict[hq_email]['days_since_last_signup']
     # Assign status based on event sign up metrics
     # Start by getting date joined from HQ
     date_joined = datetime.datetime.strptime(hq_datejoined[:19] + ' +00:00',
@@ -263,13 +265,11 @@ def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inact
         status = 'HOT LEAD'
     elif sevendays < time_since_joined <= sixtydays:
         status = "Prospective/New Member"
-    elif mobilize_dict[hq_email]['total_signups'] > event_threshold and \
-            mobilize_dict[hq_email]['days_since_last_signup'] < inactivity_threshold:
+    elif total_signups > event_threshold and days_since_last_signup < inactivity_threshold:
         status = 'Active Member'
-    elif mobilize_dict[hq_email]['total_signups'] > event_threshold and \
-            mobilize_dict[hq_email]['days_since_last_signup'] >= inactivity_threshold:
+    elif total_signups > event_threshold and days_since_last_signup >= inactivity_threshold:
         status = 'Inactive Member'
-    elif mobilize_dict[hq_email]['total_signups'] <= event_threshold and time_since_joined > sixtydays:
+    elif total_signups <= event_threshold and time_since_joined > sixtydays:
         status = 'Never got involved'
     else:
         status = 'error (plz contact hub-hq-help@sunrisemovement.org)'
@@ -336,8 +336,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
 
     # Convert remainder of mobilize dictionary rows to lists, which will be converted to a parsons table
     # create list of lists
-    hq_columns_wo_status = hq_columns_list[hq_columns['first_name']:hq_columns['status']] + \
-                            hq_columns_list[hq_columns['date_joined']:hq_columns['interest_form_responses']]
+    hq_columns_wo_status = (hq_columns_list[hq_columns['first_name']:hq_columns['status']] +
+                            hq_columns_list[hq_columns['date_joined']:hq_columns['interest_form_responses']])
     mobilize_data_append = [[mobilize_dict[i][value] for value in hq_columns_wo_status] for i in mobilize_dict]
     # insert column headers
     mobilize_data_append.insert(0,hq_columns_wo_status)
