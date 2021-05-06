@@ -193,7 +193,7 @@ def construct_update_dictionary(worksheet: list):
                     pass
                 # Append new data to existing column/item data if the email field is not empty
                 else:
-                    if len(email_address) > 0:
+                    if email_address:
                         sheet_dict[email_address][i] = \
                         sheet_dict[email_address][i] + ', ' + row[i]
         # If no row/lists exists, add it to the sheet_dict
@@ -222,9 +222,9 @@ def construct_update_dictionary(worksheet: list):
             i = concat_column
             while i < num_columns:
                 # if the concatenated column values are not empty, compile them. First column gets special treatment
-                if len(sheet_dict[contact][i]) > 0 and i == concat_column:
+                if sheet_dict[contact][i] and i == concat_column:
                     sheet_dict[contact][i] = worksheet[0][i][:20]+': ' + sheet_dict[contact][i] + '\n'
-                elif len(sheet_dict[contact][i]) > 0:
+                elif sheet_dict[contact][i]:
                     sheet_dict[contact][concat_column] = sheet_dict[contact][concat_column] + worksheet[0][i][:20]+': '\
                         + sheet_dict[contact][i] + '\n'
                 # Go to next columm
