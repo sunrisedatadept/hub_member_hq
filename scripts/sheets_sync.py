@@ -27,7 +27,8 @@ import os
 #-------------------------------------------------------------------------------
 logger = logging.getLogger(__name__)
 _handler = logging.StreamHandler()
-_formatter = logging.Formatter('%(levelname)s %(message)s')
+#_formatter = logging.Formatter('%(levelname)s %(message)s')
+_formatter = logging.Formatter('{levelname} {message}',style='{')
 _handler.setFormatter(_formatter)
 logger.addHandler(_handler)
 logger.setLevel('INFO')
@@ -180,21 +181,19 @@ def construct_update_dictionary(worksheet: list):
     # Loop through the form responses/data entry sheet and create a new row/list in the sheet_dict if a row/list doesn't
     # yet exist for the contact, or update the row/list if it already exists in sheet_dict
     for row in form_submitions:
-        # If the row/list already exists, for each column/list item, append data from the new row to the existing row
         email_address = row[signup_columns['Email Address']]
+        first_compilable_col = signup_columns['Zipcode'] + 1
+        num_cols = len(row)
+        # If the row/list already exists, for each column/list item, append data from the new row to the existing row
         try:
             sheet_dict[email_address]
             # only update columns/items past zipcode column/item
-            for i in range(len(row) - signup_columns['zipcode'] + 1):
-                # jump to column/item right after zipcode column/item
-                i = i + signup_columns['zipcode'] + 1
-                # Skip if new column value/item has no data
-                if len(row[i]) == 0:
-                    pass
-                # Append new data to existing column/item data if the email field is not empty
-                else:
-                    if email_address:
-                        sheet_dict[email_address][i] = sheet_dict[email_address][i] + ', ' + row[i]
+            i = first_compilable_col
+            while i < num_cols:
+                # If there's any data in that field and the row has an email, append new data to existing column data
+                if row[i] and email_address:
+                    sheet_dict[email_address][i] = sheet_dict[email_address][i] + ', ' + row[i]
+                i = i+1
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
             sheet_dict[email_address] = row
@@ -251,13 +250,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     # otherwise, pass
     for hq_row in hq:
         hq_email = hq_row[hq_columns['email']]
-        concat_column_idx = signup_columns['Zipcode'] + 1
+        concat_col_idx = signup_columns['Zipcode'] + 1
         # Update Hub HQ records that have a match in the retrieved form data and remove from the form dictionary
         try:
             # Update each field/list item from the update_items for the match. This will create a whole update list/row
             sheet_dict[hq_email]
             # if then magic for opt-ins and zipcodes
-            responses = [sheet_dict[hq_email][concat_column_idx]]
+            responses = [sheet_dict[hq_email][concat_col_idx]]
             updates.append(responses)
             del sheet_dict[hq_email]
         # When no match is found, create a list/row with empty values
@@ -275,11 +274,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
 
             # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
             sheet_data_append = (
-                [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
-                [sheet_dict[row][signup_columns['Timestamp']]] + ['' for x in range(6)] +
-                [sheet_dict[row][concat_column_idx]] + [''] +
-                [sheet_dict[row][signup_columns['Zipcode']]]
-                    for row in sheet_dict if sheet == 'form responses']
+                [
+                    sheet_dict[i][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
+                    [sheet_dict[i][signup_columns['Timestamp']]] + ['' for x in range(6)] +
+                    [sheet_dict[i][concat_col_idx]] + [''] +
+                    [sheet_dict[i][signup_columns['Zipcode']]]
+                        for i in sheet_dict if sheet == 'form responses'
+                ]
                                 )
             sheet_data_append.insert(0, hq_columns_list)
         except HttpError as e:
@@ -296,12 +297,13 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
             now = datetime.datetime.now(timezone.utc)
             now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
             sheet_data_append = (
-                [sheet_dict[row][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
-                [now_str] + ['' for x in range(7)] +
-                [sheet_dict[row][concat_column_idx]] +
-                [sheet_dict[row][signup_columns['Zipcode']]]
-                    for row in sheet_dict]
+                [
+                    sheet_dict[i][1:signup_columns['Zipcode']] + ['HOT LEAD'] +[now_str] + ['' for x in range(7)] +
+                    [sheet_dict[i][concat_col_idx]] +[sheet_dict[i][signup_columns['Zipcode']]]
+                        for i in sheet_dict
+                ]
                                 )
+
             sheet_data_append.insert(0, hq_columns_list)
             
         except HttpError as e:
