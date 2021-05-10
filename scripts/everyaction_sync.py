@@ -152,7 +152,7 @@ def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
             van.upsert_person_json(json_dict)
             time.sleep(.5)
         except Exception as e:
-            log_error(e, 'everyaction_sync', str(json_dict), upsert_errors, hub)
+            log_error(e, 'everyaction_sync', 'Upsert error', upsert_errors, hub)
             logger.info(json_dict)
 
 

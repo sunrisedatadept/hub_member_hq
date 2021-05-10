@@ -177,10 +177,10 @@ def construct_update_dictionary(worksheet: list):
     # later be subset to only contain records that aren't HQ
     sheet_dict = {}
     # Remove the column header from the list of lists
-    form_submitions = worksheet[1:]
+    data = worksheet[1:]
     # Loop through the form responses/data entry sheet and create a new row/list in the sheet_dict if a row/list doesn't
     # yet exist for the contact, or update the row/list if it already exists in sheet_dict
-    for row in form_submitions:
+    for row in data:
         email_address = row[signup_columns['Email Address']]
         first_compilable_col = signup_columns['Zipcode'] + 1
         num_cols = len(row)
@@ -196,7 +196,8 @@ def construct_update_dictionary(worksheet: list):
                 i = i+1
         # If no row/lists exists, add it to the sheet_dict
         except KeyError:
-            sheet_dict[email_address] = row
+            if email_address:
+                sheet_dict[email_address] = row
 
 
 
