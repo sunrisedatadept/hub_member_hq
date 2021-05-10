@@ -3,7 +3,7 @@ Hub HQ is a data system that integrates MobilizeAmerica, EveryAction, and Google
 
 # Data Pipelines Diagram
 
-![Hub HQ Diagram](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/HubHQ%20Diagram%20Annotated.jpg)
+![Hub HQ Diagram](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/HubHQ%20Diagram%20Annotated.jpg)
 
 
 # The Hub HQ Google Sheet
@@ -11,11 +11,11 @@ Hub HQ is a data system that integrates MobilizeAmerica, EveryAction, and Google
 There are four tabs in each Hub HQ Google Sheet: 
 1) Interest Form - This tab is connected to a Google Form, which hubs can use to get new sign ups (via social media or the hub map). The hub is free to add new questions after Zipcode, but cannot move or delete any questions/columns before zipcode. Data from this sheet is transferred into the Hub HQ sheet on a daily basis. Any data stored in columns after Zipcode are displayed in the _Interest Form Responses_ column of the Hub HQ sheet, concatenated with each question/response on a seperate line:
 
-![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
+![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
 
 2) Data Entry - A hub can enter data from canvassing or copy and paste data from another Google Sheet into the Data Entry sheet. The data they add is transfered into the Hub HQ sheet on a daily basis. Similarly to Interest Form data, any data in columns to the right of Zipcode are transferred to Hub HQ in a concatenated field. If there are too many lines of data to display, the _Data Entry Sheet Data_ column displays:
 
-![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
+![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
 
 3) Hub HQ - Hub HQ is where a hub's up-to-date members list lives. Hub HQ has a single row/record for each person that has signed up for a MobilizeAmerica event hosted by the hub; filled out the hub's interest form; or had their information entered in the Data Entry Sheet. In addition to the concatenated Data Entry Sheet and Interest Form columns, Hub HQ stores:
      * Contact information
@@ -43,9 +43,9 @@ This script updates event attendance history and the "status" column for existin
 
 # sheets_sync.py
 This script takes data from the Data Entry Sheet and the Interest Form sheet, compiles all non-contact information data into a single "concatenated" field for each contact, and then pushes those updates to the _Hub HQ_ sheet for any contact that has a match (based on email). It appends any contacts that do not match/do not yet exist in HQ. If the concatenated field in Hub HQ is displaying data from less than 7 columns of data, it looks like this: 
-![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
+![Concatenated Interest Form Response Field](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/Screen%20Shot%202021-04-13%20at%2011.03.32%20AM.png)
 If there is information in more than 7 columns of data for a given contact, then the concatenated field will look like this:
-![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/code-review/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
+![Too Much Data Entry Sheet Data to Display](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/Screen%20Shot%202021-04-13%20at%2011.07.02%20AM.png)
 
 
 # everyaction_sync.py
