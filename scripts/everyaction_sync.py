@@ -85,7 +85,7 @@ gspread_client = gspread.authorize(credentials)
 # Connect to scheduled sheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Open errors tables and control table update table
-upsert_errors = [['date', 'hub', 'first', 'last', 'email', 'error', 'traceback']]
+upsert_errors = [['date', 'hub','first','last','email','phone','zip','error']]
 hq_errors =[['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 control_table_update = [['hub', 'date_of_ea_sync_success']]
 
@@ -106,9 +106,10 @@ def log_error(e, script: str, note:str, error_table: list, hub:dict):
     """
     response = str(e)
     exception = str(traceback.format_exc())[:999]
-    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    error_table.append([str(date.today()), script, hub['hub_name'], response[:999], exception, note])
     logger.info(f'''{note} for {hub['hub_name']}''')
     logger.info(response)
+
 
 def get_hq(spreadsheet_id: str):
     """
@@ -124,6 +125,7 @@ def get_hq(spreadsheet_id: str):
     hq_table = Table(hq_lists[2:])
     return hq_table
 
+
 def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
     """
     Upsert (i.e. findOrCreate) new HQ contacts into hub's EveryAction committee
@@ -136,24 +138,39 @@ def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
     new_hq_contacts.convert_column(['Phone'],lambda x: re.sub("[^0-9]", "", x)[-10:])
     new_hq_contacts.convert_column(['Zipcode'], lambda x:re.sub("[^0-9]", "", x)[:5])
     for contact in new_hq_contacts:
-        json_dict = {
-      'firstName': contact['First Name'],
-      "lastName": contact['Last Name'],
-      "emails":
-            [{"email": contact['Email'],
-            "isSubscribed":'true'}],
-      "addresses":
-            [{"zipOrPostalCode": contact['Zipcode']}],
-      "phones":
-            [{"phoneNumber":contact['Phone']}]
-        }
+        if contact['Phone']:
+            json_dict = {
+                        'firstName': contact['First Name'],
+                        "lastName": contact['Last Name'],
+                        "emails":
+                            [{"email": contact['Email'],
+                            "isSubscribed":'true'}],
+                        "addresses":
+                            [{"zipOrPostalCode": contact['Zipcode']}],
+                        "phones":
+                            [{"phoneNumber":contact['Phone']}]
+                        }
+        else:
+            json_dict = {
+                        'firstName': contact['First Name'],
+                        "lastName": contact['Last Name'],
+                        "emails":
+                            [{"email": contact['Email'],
+                            "isSubscribed":'true'}],
+                        "addresses":
+                            [{"zipOrPostalCode": contact['Zipcode']}]
+                        }
 
         #Except (need to figure out what kind of errors I'll get here)
         try:
             van.upsert_person_json(json_dict)
             time.sleep(.5)
         except Exception as e:
-            log_error(e, 'everyaction_sync', 'Upsert error', upsert_errors, hub)
+            response = str(e)
+            upsert_errors.append([str(date.today()),hub['hub_name'], contact['First Name'], contact['Last Name'],
+                                 contact['Email'],contact['Phone'], contact['Zipcode'], response])
+            logger.info(f'''Upsert error for {hub['hub_name']}''')
+            logger.info(response)
             logger.info(json_dict)
 
 
