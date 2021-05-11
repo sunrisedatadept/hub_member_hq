@@ -237,7 +237,7 @@ def main():
     if len(upsert_errors) > 1:
         rs.copy(Table(upsert_errors), 'sunrise.hq_ea_sync_errors', if_exists='append', distkey='error',
             sortkey='date', alter_table=True)
-        logger.info(f'''{len(hq_errors)-1} errored contacts''')
+        logger.info(f'''{len(upsert_errors)-1} errored contacts''')
     else:
         logger.info(f'''All contacts were subscribed to the correct committees without errors''')
 
