@@ -11,7 +11,7 @@
 #       ii) An .env file with Redshift credentials (REDSHIFT_PASSWORD, REDSHIFT_USERNAME, REDSHIFT_HOST, REDSHIFT_DB,
 #            REDSHIFT_PORT, S3_TEMP_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
 #    b) Put the filepath to the cleaned .csv in the line below
-csv_path = '/Users/cormac/Desktop/csv_for_retry/example.csv' # e.g. /Users/cormac/Desktop/csv_for_retry/example.csv
+csv_path = '' # e.g. /Users/cormac/Desktop/csv_for_retry/example.csv
 
 #-------------------------------------------------------------------------------
 # Import necessary Packages
@@ -43,7 +43,7 @@ logger.setLevel('INFO')
 # Load environment
 #-------------------------------------------------------------------------------
 load_dotenv()
-# Load google credentials for parsons
+# Load API keys
 api_keys_file = 'api_keys.json'
 api_keys = json.load(open(api_keys_file))
 
