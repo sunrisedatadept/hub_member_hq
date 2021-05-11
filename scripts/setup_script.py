@@ -74,7 +74,8 @@ rs = Redshift()
 parsons_sheets = GoogleSheets(google_keyfile_dict=creds)  # Instantiate parsons GSheets class
 # Set up google sheets connection for gspread package
 scope = [
-    'https://spreadsheets.google.com/feeds'
+    'https://spreadsheets.google.com/feeds',
+    'https://www.googleapis.com/auth/drive'
 ]
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
 gspread_client = gspread.authorize(credentials)
@@ -84,6 +85,23 @@ gspread_client = gspread.authorize(credentials)
 #-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
+def log_error(e, note:str, error_table: list, hub:dict):
+    """
+
+    :param e: the exception
+    :param note: a brief explanation of where the error occured formatted as a string
+    :param error_table: the error table to log the error in
+    :param hub: a dictionary with information about the hub from the scheduled sheet
+    :return: Appends a row to the hq_errors list of lists, which is logged in Redshift at the end of the script
+    """
+    response = str(e)
+    exception = str(traceback.format_exc())[:999]
+    error_table.append([str(date.today()), hub['hub_name'], note, response[:999], exception])
+    logger.info(f'''{note} for {hub['hub_name']}''')
+    logger.info(response)
+
+
+
 def zipcode_search(hub: dict, errored_hub_list: list):
     """
     Search for zipcodes within __ miles of hub's central zipcode
@@ -98,13 +116,9 @@ def zipcode_search(hub: dict, errored_hub_list: list):
 
     # If something was wrong with the zipcode or the zipcode radius, log an error
     except Exception as e:
-        response = str(e)
-        exception = str(traceback.format_exc())[:999]
-        errors.append([str(date.today()), hub['hub_name'], response, exception])
+        log_error(e, 'Zip code radius search error', errors, hub)
         # Create errored hub list, then append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
-        logger.info(f'''Error for {hub['hub_name']} hub zip code radius search''')
-        logger.info(response)
         return
 
     # Put all zip codes from zip radius into parentheses for the SQL query below
@@ -217,14 +231,26 @@ ORDER BY date_joined
         ntl_contacts = rs.query(ea_query)
         return ntl_contacts
     except Exception as e:
-        response = str(e)
-        exception = str(traceback.format_exc())[:999]
-        errors.append([str(date.today()), hub['hub_name'], response, exception])
-        # Create errored hub list, then append to list of errored hubs
+        log_error(e, 'Issue querying redshift', errors, hub)
+        # Append to list of errored hubs
         errored_hub_list.append(hub['hub_name'])
-        logger.info(f'''Error querying national contacts for {hub['hub_name']} hub''')
-        logger.info(response)
         return
+
+
+def protect_range(hub: dict, sheet: str, range: str):
+    """
+    Protect a range for new hub hq sheet
+    :param hub: dictionary for that hub from set up sheet, retrieved by parsons
+    :param sheet: the sheet that containts the to be protected range
+    :param range: the cell range to protect
+    :return: A worksheet object of gspread class worksheet
+    """
+    # connect to spreadsheet with spread
+    spreadsheet = gspread_client.open_by_key(hub['spreadsheet_id'])
+    # Connect to the worksheet
+    worksheet = spreadsheet.worksheet(sheet)
+    # Protect the range
+    worksheet.add_protected_range(range,requesting_user_can_edit=True)
 
 
 
@@ -272,19 +298,23 @@ def main():
         try:
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'National List Signups')
         except Exception as e:
-            response = str(e)
-            exception = str(traceback.format_exc())[:999]
-            errors.append([str(date.today()), hub['hub_name'],response, exception])
-            # Create errored hub list, then append to list of errored hubs
+            log_error(e, 'Error appending new contacts', errors, hub)
+            # Append to list of errored hubs
             errored_hub_list.append(hub['hub_name'])
-            logger.info(f'''Error appending national contacts for {hub['hub_name']} hub''')
-            logger.info(response)
             continue
+
+        # Now protect ranges so that hubs don't mess up the sync editing those ranges
+        protect_range(hub, 'Interest Form','A:Y')
+        protect_range(hub, 'Data Entry', 'B1:F2')
+        protect_range(hub, 'Hub HQ', 'A:O')
+        protect_range(hub, 'Analytics Dashboard', 'A:Y')
+        protect_range(hub, 'Explainer Docs', 'A:O')
+        protect_range(hub, 'National List Signups', 'A:H')
+        protect_range(hub, 'HQ Settings', 'A1:F3')
+
 
     succeeded_hubs = hubs.select_rows(lambda row: row.hub_name not in errored_hub_list)
     errored_hubs = hubs.select_rows(lambda row: row.hub_name in errored_hub_list)
-
-
 
     ##### Modify Set Up Spreadsheet #####
     # This part of the script takes the hubs that we just set up successfully, and moves them to the 'scheduled' sheet,
