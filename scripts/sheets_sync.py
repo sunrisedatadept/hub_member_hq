@@ -144,7 +144,7 @@ def log_error(e, script: str, note:str, error_table: list, hub:dict):
     """
     response = str(e)
     exception = str(traceback.format_exc())[:999]
-    error_table.append([str(date.today()), script, hub['hub_name'], note, response[:999], exception])
+    error_table.append([str(date.today()), script, hub['hub_name'], response[:999], exception, note])
     logger.info(f'''{note} for {hub['hub_name']}''')
     logger.info(response)
 
