@@ -342,7 +342,7 @@ def main():
 
 
     # Add errors to errors spreadsheet and log number of errors
-    errors_worksheet.update(f'''A{num_errors + 2}:D''', errors)
+    errors_worksheet.update(f'''A{num_errors + 2}:E''', errors)
 
 
 
