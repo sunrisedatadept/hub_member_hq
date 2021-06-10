@@ -106,6 +106,15 @@ signup_columns = {
     'zipcode': 5
 }
 
+unrestricted_columns = ['first_name',
+                        'last_name',
+                        'email',
+                        'phone',
+                        'date_joined',
+                        'interest_form_responses',
+                        'data_entry_data',
+                        'zipcode']
+
 hq_columns_list = ['first_name',
                     'last_name',
                     'email',
@@ -234,7 +243,7 @@ def construct_update_dictionary(worksheet: list):
 
     return sheet_dict
 
-def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
+def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_sheet, hub: dict):
     """
     Updates concatenated forms response/data entry column in HQ by sending concatenated form response values from
     sheet_dict
@@ -242,6 +251,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     :param hq: list of lists where each list is a row in the HQ
     :param sheet: either 'form responses' sheet or 'data entry sheet'
     :param hq_worksheet: gspread worksheet object for hq worksheet
+    :param unrestricted_sheet: gspread worksheet object for hq worksheet
     :param hub: dictionary for that hub from set up sheet, retrieved by parsons
     :return: parsons table of contacts from sheet_dict that did not have any matches in HQ. This will be appended to HQ
     """
@@ -270,14 +280,18 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     # If this is for form responses, put into column M
     if sheet == 'form responses':
         try:
-            # Update concatenated form response column
+            # Update concatenated form response column in hq sheet
             hq_worksheet.update('M4:M', updates)
+            # Update in unrestricted sheet
+            unrestricted_sheet.update('F4:F', updates)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating form response column', hq_errors, hub)
     elif sheet == 'data entry sheet':
         try:
-            # Update existing records
+            # Update concatenated data entry field for existing records in hq sheet
             hq_worksheet.update('N4:N', updates)
+            # Update in unrestricted sheet
+            unrestricted_sheet.update('G4:G', updates)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating data entry data column', hq_errors, hub)
 
@@ -292,21 +306,24 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     sheet_dict_array.insert(0,sheet_dict_cols)
     #convert to table
     sheet_dict_table = Table(sheet_dict_array)
+    # Since there is no timestamp field for the data entry sheet, assign today's date as the date_joined value
+    now = datetime.datetime.now(timezone.utc)
+    now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
+    sheet_dict_table.fillna_column('date_joined',now_str)
 
     # Create empty tbl with HQ columns in the order they appear in the spreadhseet and then fill the table
     # with the new values from sheet dict. Really all we're doing here is ensuring that the new rows
     # we're appending in HQ are in the correct order
     hq_append_tbl = Table([hq_columns_list])
     hq_append_tbl.concat(sheet_dict_table)
-    # Since there is no timestamp field for the data entry sheet, assign today's date as the date_joined value
-    now = datetime.datetime.now(timezone.utc)
-    now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
-    hq_append_tbl.fillna_column('date_joined',now_str)
-    hq_append_tbl.move_column('date_joined',5)
     hq_append_tbl.fillna_column('status','HOT LEAD')
     hq_append_tbl.move_column('status',4)
 
-    return hq_append_tbl
+    # Repeat last set of steps to prepare a table to append to the unrestricted sheet
+    unrestrict_append_tbl = Table([unrestricted_columns])
+    unrestrict_append_tbl.concat(sheet_dict_table)
+
+    return hq_append_tbl, unrestrict_append_tbl
 
 
 
@@ -318,6 +335,7 @@ def main():
     for hub in hubs:
         # Connect to the hub's spreadsheet
         hq_worksheet = connect_to_worksheet(hub, 'Hub HQ')
+        unrestricted_sheet = connect_to_worksheet(hub, 'Unrestricted')
         # Get Hub HQ table
         hq = hq_worksheet.get_all_values()
         hq = hq[2:]
@@ -329,10 +347,12 @@ def main():
         # Get deduplicated updates dictionary for form responses
         signup_form_dict = construct_update_dictionary(signup_form_responses)
         # Push updates to HQ and get left over unmatched rows back (which we append immediately after)
-        signup_form_table = hq_updates(signup_form_dict,hq,'form responses', hq_worksheet, hub)
+        signup_form_table, unrestict_append1_tbl = hq_updates(signup_form_dict,hq,'form responses', hq_worksheet,
+                                                              unrestricted_sheet, hub)
         # Append left over sign up form rows to HQ
         try:
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], signup_form_table, 'Hub HQ')
+            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], unrestict_append1_tbl, 'Unrestricted')
         except ValueError:
             logger.info(f'''No new signup form contacts for {hub['hub_name']}''')
         # Repeat process for data entry sheet
@@ -347,10 +367,12 @@ def main():
         # Get deduplicated updates dictionary for data entry sheet
         data_entry_dict = construct_update_dictionary(data_entry_data)
         # Push updates to HQ and get left over unmatched rows back (which we append after adding date)
-        data_entry_table = hq_updates(data_entry_dict,hq,'data entry sheet', hq_worksheet, hub)
+        data_entry_table, unrestict_append2_tbl = hq_updates(data_entry_dict,hq,'data entry sheet', hq_worksheet,
+                                                             unrestricted_sheet, hub)
         # Append left over data entry sheet rows to HQ
         try:
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], data_entry_table, 'Hub HQ')
+            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], unrestict_append2_tbl, 'Unrestricted')
         except ValueError:
             logger.info(f'''No new data entries for {hub['hub_name']}''')
         # Send errors table to redshift
