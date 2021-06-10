@@ -98,12 +98,12 @@ hq_columns = {
 }
 
 signup_columns = {
-    'Timestamp': 0,
-    'First Name': 1,
-    'Last Name': 2,
-    'Email Address': 3,
-    'Phone Number': 4,
-    'Zipcode': 5
+    'date_joined': 0,
+    'first_name': 1,
+    'last_name': 2,
+    'email': 3,
+    'phone': 4,
+    'zipcode': 5
 }
 
 hq_columns_list = ['first_name',
@@ -120,7 +120,7 @@ hq_columns_list = ['first_name',
                     'days_since_last_attendance',
                     'interest_form_responses',
                     'data_entry_data',
-                    'zipcode',]
+                    'zipcode']
 
 # Get scheduled spreadsheet (hub hqs to loop through)
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
@@ -181,8 +181,8 @@ def construct_update_dictionary(worksheet: list):
     # Loop through the form responses/data entry sheet and create a new row/list in the sheet_dict if a row/list doesn't
     # yet exist for the contact, or update the row/list if it already exists in sheet_dict
     for row in data:
-        email_address = row[signup_columns['Email Address']]
-        first_compilable_col = signup_columns['Zipcode'] + 1
+        email_address = row[signup_columns['email']]
+        first_compilable_col = signup_columns['zipcode'] + 1
         num_cols = len(row)
         # If the row/list already exists, for each column/list item, append data from the new row to the existing row
         try:
@@ -208,7 +208,7 @@ def construct_update_dictionary(worksheet: list):
         num_cols_with_data = sum(1 for i in sheet_dict[contact] if len(i)>0)
         if num_cols_with_data > 13:
             # If there are too many fields to concatenate into one cell, display this message
-            sheet_dict[contact][signup_columns['Zipcode'] + 1] = ('Too much data to display \n' 
+            sheet_dict[contact][signup_columns['zipcode'] + 1] = ('Too much data to display \n' 
                                                                  'Use ctr + f to find persons data\n' 
                                                                  'in Interest Form or Data Entry sheet')
         else:
@@ -216,7 +216,7 @@ def construct_update_dictionary(worksheet: list):
             # line break. We're sticking all of the items after zipcode into the item immediately after zipcode, so we
             # really only need to loop through the items starting 1 item after zipcde and append them to the concatenated
             # field
-            concat_column = signup_columns['Zipcode'] + 1
+            concat_column = signup_columns['zipcode'] + 1
             num_columns = len(sheet_dict[contact])
             i = concat_column
             while i < num_columns:
@@ -230,7 +230,7 @@ def construct_update_dictionary(worksheet: list):
                 i=i+1
 
         # Remove all columns after concatenation column
-        sheet_dict[contact] = sheet_dict[contact][0:signup_columns['Zipcode'] + 2]
+        sheet_dict[contact] = sheet_dict[contact][0:signup_columns['zipcode'] + 2]
 
     return sheet_dict
 
@@ -251,7 +251,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
     # otherwise, pass
     for hq_row in hq:
         hq_email = hq_row[hq_columns['email']]
-        concat_col_idx = signup_columns['Zipcode'] + 1
+        concat_col_idx = signup_columns['zipcode'] + 1
         # Update Hub HQ records that have a match in the retrieved form data and remove from the form dictionary
         try:
             # Update each field/list item from the update_items for the match. This will create a whole update list/row
@@ -272,46 +272,41 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, hub: dict):
         try:
             # Update concatenated form response column
             hq_worksheet.update('M4:M', updates)
-
-            # Convert remainder of sheet_dict rows to lists, which will be converted to a parson's table
-            sheet_data_append = (
-                [
-                    sheet_dict[i][1:signup_columns['Zipcode']] + ['HOT LEAD'] +
-                    [sheet_dict[i][signup_columns['Timestamp']]] + ['' for x in range(6)] +
-                    [sheet_dict[i][concat_col_idx]] + [''] +
-                    [sheet_dict[i][signup_columns['Zipcode']]]
-                        for i in sheet_dict if sheet == 'form responses'
-                ]
-                                )
-            sheet_data_append.insert(0, hq_columns_list)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating form response column', hq_errors, hub)
-
-    # else it's for data entry and put into column N
     elif sheet == 'data entry sheet':
         try:
             # Update existing records
             hq_worksheet.update('N4:N', updates)
-            # Take remaining unmatched records from dictionary and put them into a list, which is then converted to a
-            # table and appended
-            # Fill Timestamp column with today's datetime, which EA sync uses
-            now = datetime.datetime.now(timezone.utc)
-            now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
-            sheet_data_append = (
-                [
-                    sheet_dict[i][1:signup_columns['Zipcode']] + ['HOT LEAD'] +[now_str] + ['' for x in range(7)] +
-                    [sheet_dict[i][concat_col_idx]] +[sheet_dict[i][signup_columns['Zipcode']]]
-                        for i in sheet_dict
-                ]
-                                )
-
-            sheet_data_append.insert(0, hq_columns_list)
-            
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating data entry data column', hq_errors, hub)
 
-    sheet_parsons_append = Table(sheet_data_append)
-    return sheet_parsons_append
+    # Convert remainder of sheet_dict rows to a parsons table (to append to the bottom of hq)
+    #First turn the dict into an array
+    sheet_dict_array = [sheet_dict[email] for email in sheet_dict]
+    # Create a list for the col headers and insert into the array
+    if sheet == 'form responses':
+        sheet_dict_cols = list(signup_columns.keys()) + ['interest_form_responses']
+    elif sheet == 'data entry sheet':
+        sheet_dict_cols = list(signup_columns.keys()) + ['data_entry_data']
+    sheet_dict_array.insert(0,sheet_dict_cols)
+    #convert to table
+    sheet_dict_table = Table(sheet_dict_array)
+
+    # Create empty tbl with HQ columns in the order they appear in the spreadhseet and then fill the table
+    # with the new values from sheet dict. Really all we're doing here is ensuring that the new rows
+    # we're appending in HQ are in the correct order
+    hq_append_tbl = Table([hq_columns_list])
+    hq_append_tbl.concat(sheet_dict_table)
+    # Since there is no timestamp field for the data entry sheet, assign today's date as the date_joined value
+    now = datetime.datetime.now(timezone.utc)
+    now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
+    hq_append_tbl.fillna_column('date_joined',now_str)
+    hq_append_tbl.move_column('date_joined',5)
+    hq_append_tbl.fillna_column('status','HOT LEAD')
+    hq_append_tbl.move_column('status',4)
+
+    return hq_append_tbl
 
 
 
