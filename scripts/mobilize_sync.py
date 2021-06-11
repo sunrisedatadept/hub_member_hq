@@ -91,11 +91,14 @@ hq_columns = {
                 'first_attendance': 9,
                 'days_since_last_signup': 10,
                 'days_since_last_attendance': 11,
-                'status':4,
-                'zipcode':14,
-                'interest_form_responses':12,
-                'data_entry_data':13
+                'status': 4,
+                'zipcode': 14,
+                'birthyear': 15,
+                'source': 16,
+                'interest_form_responses': 12,
+                'data_entry_data': 13
 }
+
 # Store as list too
 hq_columns_list = ['first_name',
                     'last_name',
@@ -111,7 +114,10 @@ hq_columns_list = ['first_name',
                     'days_since_last_attendance',
                     'interest_form_responses',
                     'data_entry_data',
-                    'zipcode']
+                    'zipcode',
+                    'birthyear',
+                    'source']
+
 # Get 'scheduled' spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end

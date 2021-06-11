@@ -84,10 +84,12 @@ hq_columns = {
                 'first_attendance': 9,
                 'days_since_last_signup': 10,
                 'days_since_last_attendance': 11,
-                'status':4,
-                'zipcode':14,
-                'interest_form_responses':12,
-                'data_entry_data':13
+                'status': 4,
+                'zipcode': 14,
+                'birthyear': 15,
+                'source': 16,
+                'interest_form_responses': 12,
+                'data_entry_data': 13
 }
 
 # Put HQ columns we want in redshift into a list
@@ -105,17 +107,21 @@ hq_columns_list = ['first_name',
                     'days_since_last_attendance',
                     'interest_form_responses',
                     'data_entry_data',
-                    'zipcode']
+                    'zipcode',
+                    'birthyear',
+                    'source']
+
 #Narrow to columns of interest
-hq_columns_narrowed = hq_columns_list[hq_columns['first_name']:hq_columns['interest_form_responses']]
 # Get scheduled spreadsheet (hub hqs to loop through)
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
 hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 # Create parsons table to compile hub hqs into
-all_hub_members = Table([hq_columns_narrowed])
-#Remove status column
+all_hub_members = Table([hq_columns_list])
+# Remove columns we don't want to sync to redshift (status because hubs might be using different criteria)
 all_hub_members.remove_column('status')
+all_hub_members.remove_column('interest_form_responses')
+all_hub_members.remove_column('data_entry_data')
 # insert column for hub
 all_hub_members.add_column('hub',index=0)
 
@@ -155,13 +161,16 @@ def main():
         # Remove top three rows (instructional and python/sql unfriendly column headers)
         # And insert python/sql friendly column headers
         hq = hq_all[3:]
-        hq.insert(0, hq_columns_narrowed)
-        # and convert to Parsons table
+        hq.insert(0, hq_columns_list)
+        # and convert to Parsons table. Far right columns are dropped because there is no corresponding header (i.e.
+        # columns hubs add get dropped)
         hq_table = Table(hq)
         # Add and fill hub column
         hq_table.add_column('hub',hub['hub_name'],0)
-        #Remove the status column, seeing as different hubs might be using different criteria
+        # Remove columns we don't want to sync to redshift (status because hubs might be using different criteria)
         hq_table.remove_column('status')
+        hq_table.remove_column('interest_form_responses')
+        hq_table.remove_column('data_entry_data')
         # Stack to all_hub_members
         all_hub_members.stack(hq_table)
 
