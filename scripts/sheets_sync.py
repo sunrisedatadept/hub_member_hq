@@ -322,7 +322,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_shee
     hq_append_tbl = Table([hq_columns_list])
     hq_append_tbl.concat(sheet_dict_table)
     hq_append_tbl.fillna_column('status','HOT LEAD')
-    hq_append_tbl.move_column('status',4)
+    hq_append_tbl.move_column('status',hq_columns['status'])
     if sheet == 'form responses':
         hq_append_tbl.fillna_column('source', 'Interest Form')
     if sheet == 'data entry sheet':
