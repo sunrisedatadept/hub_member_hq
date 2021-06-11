@@ -5,7 +5,7 @@
 # in the 'set up' tabl of the Hub HQ Set Up Sheet
 # (https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0) and for each hub:
 # 1) using the zipcode and zipcode radius provided to find all the zipcodes in the radius
-# 2) Sending a query to REdshift to get all contacts that live in those zipcodes
+# 2) Sending a query to Redshift to get all contacts that live in those zipcodes
 # 3) Appending that list of contacts to the 'National List Signups' sheet
 # If the script succeeds for a hub, that hub's info is transferred from the 'set up' tab to the 'scheduled' tab.
 # If the script fails for a hub, the hub remains in the 'set up' tab and the traceback error is logged in the 'errors'
@@ -83,6 +83,47 @@ gspread_client = gspread.authorize(credentials)
 
 
 #-------------------------------------------------------------------------------
+# Connect to necessary google sheet worksheets and set global variables
+#-------------------------------------------------------------------------------
+# Connect to the set up spreadsheet via gspread
+hq_set_up_sheet = gspread_client.open_by_key('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA')
+# Connect to the set up worksheet via gspread
+setup_worksheet = hq_set_up_sheet.worksheet('set up')
+# Connect to the errors worksheet via gspread
+errors_worksheet = hq_set_up_sheet.worksheet('errors')
+
+# Get set up spreadsheet and errors spreadsheet
+hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA','set up')
+logged_errors = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA','errors')
+# Get row count (used later to wipe sheet after set up is complete and append errors)
+num_hubs = hubs.num_rows
+num_errors = logged_errors.num_rows
+# Define columns of spreadsheet for future use
+columns = ['hub_name','hub_email','spreadsheet_id','zipcode','search_radius']
+# This list of errors will become parsons table and be pushed to the errors tab in the spreadsheet
+errors = []
+# Put HQ columns we want in redshift into a list
+hq_columns_list = ['first_name',
+                    'last_name',
+                    'email',
+                    'phone',
+                    'status',
+                    'date_joined',
+                    'total_signups',
+                    'total_attendances',
+                    'first_signup',
+                    'first_attendance',
+                    'days_since_last_signup',
+                    'days_since_last_attendance',
+                    'interest_form_responses',
+                    'data_entry_data',
+                    'zipcode',
+                    'birthyear',
+                    'source']
+
+
+
+#-------------------------------------------------------------------------------
 # Define functions
 #-------------------------------------------------------------------------------
 def log_error(e, note:str, error_table: list, hub:dict):
@@ -106,7 +147,6 @@ def zipcode_search(hub: dict, errored_hub_list: list):
     """
     Search for zipcodes within __ miles of hub's central zipcode
     :param hub: Parson's table row from hubs parson's table retrieved from setup spreadsheet
-    :param errors: List of errors
     :param errored_hub_list: Errorored hubs list (should already be in memory when this function is executed)
     :return: A string of zip codes within xyz radius of hub's central zip separated by commas and bounded by parentheses
     """
@@ -130,7 +170,7 @@ def query_everyaction(zip_object: str, errors: list, errored_hub_list: list, hub
     Query EveryAction tables to get contacts in hub's zipcode radius
     :param zip_object: String returned by zipcode_search()
     :param errors: List of errors
-    :param errored_hub_list:
+    :param errored_hub_list: list where hubs for which there are set up errors are stored
     :param hub: dictionary with values for hub from 'scheduled sheet'
     :return: A parson's table of contacts in this hub's area
     """
@@ -168,7 +208,7 @@ contacts AS (
   		, datecreated as date_joined
   		, firstname AS first
   		, lastname AS last
-  		, DATEDIFF(YEAR, dob, GETDATE()-1) AS age
+  		, date_part_year(dob::date) AS birthyear
 	FROM sunrise_ea.tsm_tmc_contacts_sm),
 
 -- We also want their emails
@@ -208,22 +248,31 @@ phone AS (
 	WHERE
 		is_most_recent = TRUE
 		AND opt.phoneoptinstatusid IN (1,2)
-		AND committeeid = 80541)
+		AND committeeid = 80541),
 
-SELECT
-  zip.vanid
-  , contacts.first
-  , contacts.last
-  , email.email
-  , phone.phone
-  , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'YYYY-MM-DD hh24:MI:SS') as date_joined
-  , contacts.age
-FROM zip
-LEFT JOIN contacts on contacts.vanid = zip.vanid
-LEFT JOIN email on email.vanid = zip.vanid
-LEFT JOIN phone on phone.vanid = zip.vanid
-WHERE email.email IS NOT NULL OR phone.phone IS NOT NULL AND contacts.age > 17
-ORDER BY date_joined
+
+final_base as (
+    SELECT
+      zip.vanid
+      , contacts.first as first_name
+      , contacts.last as last_name
+      , email.email
+      , phone.phone
+      , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'YYYY-MM-DD hh24:MI:SS') as date_joined
+      , contacts.birthyear
+      -- need to dedup by email
+      , row_number() over(partition by email.email order by zip.datemodified desc) = 1 as is_most_recent
+    FROM zip
+    LEFT JOIN contacts on contacts.vanid = zip.vanid
+    LEFT JOIN email on email.vanid = zip.vanid
+    LEFT JOIN phone on phone.vanid = zip.vanid
+    WHERE 
+        -- Since hub_hq relies on email for matching, we can only give them contacts with subscribed email addresses
+        email.email IS NOT NULL 
+        AND date_part_year(current_date) - contacts.birthyear > 17
+    ORDER BY date_joined)
+
+select * from final_base where is_most_recent = TRUE
 '''
 
     # Send query to Redshift
@@ -236,6 +285,89 @@ ORDER BY date_joined
         errored_hub_list.append(hub['hub_name'])
         return
 
+
+def get_mobilize_data(hub: dict, errors: list, errored_hub_list: list):
+    """
+    Get Mobilize event attendance data for hub
+    :param hub: dictionary for that hub from set up sheet, retrieved by parsons
+    :param errors: List of errors
+    :param errored_hub_list: list where hubs for which there are set up errors are stored
+    :return: A dictionary of dictionaries where each key is a unique email and each item is a row of info from Mobilize
+    """
+    # Get Mobilize data -- query returns a table of deduped contacts and their event attendance history
+    event_attendance_sql = f'''
+with 
+-- deals with duplicate
+most_recent as 
+(
+    select
+        ppl.created_date,
+  		ppl.user_id as person_id, 
+        ppl.user__given_name as first_name,
+        ppl.user__family_name as last_name,
+        ppl.user__email_address as email,
+        ppl.user__phone_number as phone_number,
+        ppl.status,
+        ppl.timeslot_id,
+        ppl.event_id,
+        ppl.attended,
+        ppl.start_date,
+  		events.id,
+  		events.title,
+        row_number() over (partition by ppl.id order by ppl.created_date::date desc) = 1 as is_most_recent
+  	from sunrise_mobilize.participations ppl
+    left join sunrise_mobilize.events events on ppl.event_id = events.id
+    where events.creator__email_address ilike '{hub['hub_email']}'
+),
+
+
+--Get unique signups
+signups as
+(
+    select * from most_recent where is_most_recent = true
+)
+
+-- get unique people rows from signups
+select 
+    max(first_name) as first_name,
+    max(last_name) as last_name,
+    email,
+    max(phone_number) as phone,
+    to_char(min(created_date),'MM/DD/YYYY HH24:MI:SS')::text as date_joined,
+    count(*) as total_signups,
+    sum
+    (case 
+        when attended = true then 1
+        else 0
+    end) as total_attendances,
+    min(start_date::date)::text as first_signup,
+    min
+        (case 
+            when attended = true then start_date::date
+            else null
+        end)::text as first_attendance,
+    datediff(day,max(start_date)::date,getdate()) as days_since_last_signup,
+    datediff(
+        day
+        ,max(case 
+                when attended = true then start_date
+                else null
+            end)::date
+        ,getdate()
+        ) as days_since_last_attendance
+from signups
+group by email
+order by min(created_date)
+'''
+    # Send query to mobilize
+    try:
+        mobilize_tbl = rs.query(sql=event_attendance_sql)
+        return mobilize_tbl
+    except Exception as e:
+        log_error(e, 'Issue querying redshift', errors, hub)
+        # Append to list of errored hubs
+        errored_hub_list.append(hub['hub_name'])
+        return
 
 def protect_range(hub: dict, sheet: str, range: str):
     """
@@ -254,27 +386,6 @@ def protect_range(hub: dict, sheet: str, range: str):
 
 
 
-#-------------------------------------------------------------------------------
-# Connect to necessary google sheet worksheets and set global variables
-#-------------------------------------------------------------------------------
-# Connect to the set up spreadsheet via gspread
-hq_set_up_sheet = gspread_client.open_by_key('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA')
-# Connect to the set up worksheet via gspread
-setup_worksheet = hq_set_up_sheet.worksheet('set up')
-# Connect to the errors worksheet via gspread
-errors_worksheet = hq_set_up_sheet.worksheet('errors')
-
-# Get set up spreadsheet and errors spreadsheet
-hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA','set up')
-logged_errors = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA','errors')
-# Get row count (used later to wipe sheet after set up is complete and append errors)
-num_hubs = hubs.num_rows
-num_errors = logged_errors.num_rows
-# Define columns of spreadsheet for future use
-columns = ['hub_name','hub_email','spreadsheet_id','zipcode','search_radius']
-# This list of errors will become parsons table and be pushed to the errors tab in the spreadsheet
-errors = []
-
 
 
 #-------------------------------------------------------------------------------
@@ -288,15 +399,27 @@ def main():
     errored_hub_list = []
     for hub in hubs:
         zip_object = zipcode_search(hub, errored_hub_list)
+        # Query the ntl database for contacts in the hubs area and get contacts from the hub's mobilize
+        ntl_contacts = query_everyaction(zip_object, errors, errored_hub_list, hub)
+        ntl_contacts.add_column('source','National Email List')
+        mobilize_table = get_mobilize_data(hub, errors, errored_hub_list)
+        mobilize_table.add_column('source','Mobilize')
+        # We're going to combine the two above table but need to ensure there are no overlapping contacts/duplicates
+        mobilize_emails = [row['email'] for row in mobilize_table]
+        ntl_subset = ntl_contacts.select_rows(lambda row: row.email not in mobilize_emails)
+        # Now that any duplicates have been removed, concatenate/combine the tables
+        ntl_subset.concat(mobilize_table)
+        ntl_subset.remove_column('vanid')
+        ntl_subset.remove_column('is_most_recent')
 
-        # This is the query used to get contacts from the national database. zip_object at bottom of first CTE
-        if zip_object is None:
-            continue
-        else:
-            ntl_contacts = query_everyaction(zip_object, errors, errored_hub_list, hub)
+        # Then, create an empty table with hub hq columns in the correct order and concatenate all_contacts to that to
         # Send that table of contacts to the hub's spreadsheet
+        hub_hq_append = Table([hq_columns_list])
+        hub_hq_append.concat(ntl_subset)
+
+
         try:
-            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], ntl_contacts, 'National List Signups')
+            parsons_sheets.append_to_sheet(hub['spreadsheet_id'], hub_hq_append, 'Hub HQ')
         except Exception as e:
             log_error(e, 'Error appending new contacts', errors, hub)
             # Append to list of errored hubs
