@@ -99,6 +99,32 @@ hq_columns = {
                 'data_entry_data': 13
 }
 
+hq_column_letters = {
+                'date_joined': 'F',
+                'first_name': 'A',
+                'last_name': 'B',
+                'email': 'C',
+                'phone': 'D',
+                'total_signups': 'G',
+                'total_attendances': 'H',
+                'first_signup': 'I',
+                'first_attendance': 'J',
+                'days_since_last_signup': 'K',
+                'days_since_last_attendance': 'L',
+                'status': 'E',
+                'zipcode': 'O',
+                'birthyear': 'P',
+                'source': 'Q',
+                'interest_form_responses': 'M',
+                'data_entry_data': 'N'
+}
+
+unrestricted_column_letters = {
+                    'interest_form_responses': 'F',
+                    'data_entry_data': 'G'
+                    }
+
+
 signup_columns = {
     'date_joined': 0,
     'first_name': 1,
@@ -286,17 +312,23 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_shee
     if sheet == 'form responses':
         try:
             # Update concatenated form response column in hq sheet
-            hq_worksheet.update('M4:M', updates)
+            range1 = hq_column_letters['interest_form_responses'] + '4:' + hq_column_letters['interest_form_responses']
+            hq_worksheet.update(range1, updates)
             # Update in unrestricted sheet
-            unrestricted_sheet.update('F4:F', updates)
+            range2 = (unrestricted_column_letters['interest_form_responses'] + '4:' +
+                    unrestricted_column_letters['interest_form_responses'])
+            unrestricted_sheet.update(range2, updates)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating form response column', hq_errors, hub)
     elif sheet == 'data entry sheet':
         try:
             # Update concatenated data entry field for existing records in hq sheet
-            hq_worksheet.update('N4:N', updates)
+            range3 = hq_column_letters['data_entry_data'] + '4:' + hq_column_letters['data_entry_data']
+            hq_worksheet.update(range3, updates)
             # Update in unrestricted sheet
-            unrestricted_sheet.update('G4:G', updates)
+            range4 = (unrestricted_column_letters['data_entry_data'] + '4:' +
+                      unrestricted_column_letters['data_entry_data'])
+            unrestricted_sheet.update(range4, updates)
         except HttpError as e:
             log_error(e, 'sheets_sync', 'Error while updating data entry data column', hq_errors, hub)
 

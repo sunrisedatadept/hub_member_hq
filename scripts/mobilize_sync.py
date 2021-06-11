@@ -99,6 +99,27 @@ hq_columns = {
                 'data_entry_data': 13
 }
 
+
+hq_column_letters = {
+                'date_joined': 'F',
+                'first_name': 'A',
+                'last_name': 'B',
+                'email': 'C',
+                'phone': 'D',
+                'total_signups': 'G',
+                'total_attendances': 'H',
+                'first_signup': 'I',
+                'first_attendance': 'J',
+                'days_since_last_signup': 'K',
+                'days_since_last_attendance': 'L',
+                'status': 'E',
+                'zipcode': 'O',
+                'birthyear': 'P',
+                'source': 'Q',
+                'interest_form_responses': 'M',
+                'data_entry_data': 'N'
+}
+
 # Store as list too
 hq_columns_list = ['first_name',
                     'last_name',
@@ -334,7 +355,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
             event_attendance_updates.append([status] + hq_row[hq_columns['date_joined']:
                                                               hq_columns['interest_form_responses']])
     # Send the updates to Hub HQ
-    hq_worksheet.update('E4:L', event_attendance_updates)
+    range = hq_column_letters['status'] + '4:' + hq_column_letters['days_since_last_attendance']
+    hq_worksheet.update(range, event_attendance_updates)
 
     # Now we convert the remaining Mobilize records, for which no matches were found, and reformat them to a parson's
     # table so that we can append them to the google sheet using the parson's google sheet append method. We also add a
