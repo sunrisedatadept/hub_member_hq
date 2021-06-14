@@ -260,7 +260,7 @@ final_base as (
       , contacts.last as last_name
       , email.email
       , phone.phone
-      , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'YYYY-MM-DD hh24:MI:SS') as date_joined
+      , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'MM/DD/YYYY HH24:MI:SS') as date_joined
       , contacts.birthyear
       -- need to dedup by email
       , row_number() over(partition by email.email order by zip.datemodified desc) = 1 as is_most_recent
