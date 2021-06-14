@@ -396,7 +396,9 @@ def main():
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], signup_form_table, 'Hub HQ')
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], unrestict_append1_tbl, 'Unrestricted')
         except ValueError:
-            logger.info(f'''No new signup form contacts for {hub['hub_name']}''')
+            logger.info(f'''No new data entries for {hub['hub_name']}''')
+        except Exception as e:
+            log_error(e, 'sheets_sync', 'Error adding new Interest Form contacts', hq_errors, hub)
         # Repeat process for data entry sheet
         # Get Hub HQ table, which now has new form respondants
         hq = hq_worksheet.get_all_values()
@@ -417,6 +419,8 @@ def main():
             parsons_sheets.append_to_sheet(hub['spreadsheet_id'], unrestict_append2_tbl, 'Unrestricted')
         except ValueError:
             logger.info(f'''No new data entries for {hub['hub_name']}''')
+        except Exception as e:
+            log_error(e, 'sheets_sync', 'Error adding new Data Entry Sheet contacts', hq_errors, hub)
         # Send errors table to redshift
     if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
