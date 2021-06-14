@@ -1,12 +1,14 @@
 #Civis container script: https://platform.civisanalytics.com/spa/#/scripts/containers/112448113
 
-# This script "sets up" Hub HQs by dumping all the contacts from the national EveryAction that are in the hub's area
-# (based on a zipcode radius search) into the the 'National List Signups.' It does so by looping through each hub
-# in the 'set up' tabl of the Hub HQ Set Up Sheet
+# This script "sets up" Hub HQs by adding all the contacts from the national EveryAction that are in the hub's area
+# (based on a zipcode radius search) and all of the contacts who have signed up for any of the hubs mobilize events
+# into the the ''Hub HQ' sheet. It does so by looping through each hub in the 'set up' table of the Hub HQ Set Up Sheet
 # (https://docs.google.com/spreadsheets/d/1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA/edit#gid=0) and for each hub:
-# 1) using the zipcode and zipcode radius provided to find all the zipcodes in the radius
+# 1) Using the zipcode and zipcode radius provided to find all the zipcodes in the radius
 # 2) Sending a query to Redshift to get all contacts that live in those zipcodes
-# 3) Appending that list of contacts to the 'National List Signups' sheet
+# 3) Querying Redshift for all of the hub's mobilize contacts
+# 4) Compiling the two tables
+# 5) Appending that table of all contacts to the hub's 'Hub HQ' sheet
 # If the script succeeds for a hub, that hub's info is transferred from the 'set up' tab to the 'scheduled' tab.
 # If the script fails for a hub, the hub remains in the 'set up' tab and the traceback error is logged in the 'errors'
 # tab of the same spreadsheet
