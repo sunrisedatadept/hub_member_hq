@@ -3,7 +3,7 @@ Hub HQ is a data system that integrates MobilizeAmerica, EveryAction, and Google
 
 # Data Pipelines Diagram
 
-![Hub HQ Diagram](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/HubHQ%20Diagram%20Annotated.jpg)
+![Hub HQ Diagram](https://github.com/sunrisedatadept/hub_member_hq/blob/main/images/HubHQ_Diagram_2021-06-15.jpg)
 
 
 # The Hub HQ Google Sheet
