@@ -212,6 +212,7 @@ def main():
             # Subset HQ rows to only include contacts that synced since last successful run
             new_hq_contacts = hq.select_rows(lambda row: datetime.datetime.strptime(row['Date Joined'][:19] + ' +00:00',
                                                 "%m/%d/%Y %H:%M:%S %z") > date_last_sync)
+            new_non_ntl_contacts = new_hq_contacts.select_rows(lambda row: row.Source != 'National Email List')
         # For hubs who haven't had a sync yet
         except KeyError as e:
             log_error(e, 'everyaction_sync', 'No record of hub in control table, could be hubs first run', hq_errors, hub)
@@ -219,7 +220,7 @@ def main():
             new_hq_contacts = hq
 
         # Upsert new contacts to EA
-        subscribe_to_ea(new_hq_contacts, van, upsert_errors,hub)
+        subscribe_to_ea(new_non_ntl_contacts, van, upsert_errors,hub)
         # get now
         now = datetime.datetime.now(timezone.utc)
         now_str = datetime.datetime.strftime(now,'%Y-%m-%d %H:%M:%S')
