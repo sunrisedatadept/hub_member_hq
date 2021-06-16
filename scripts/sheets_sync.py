@@ -96,7 +96,8 @@ hq_columns = {
                 'birthyear': 15,
                 'source': 16,
                 'interest_form_responses': 12,
-                'data_entry_data': 13
+                'data_entry_data': 13,
+                'date_claimed':17
 }
 
 hq_column_letters = {
@@ -116,7 +117,8 @@ hq_column_letters = {
                 'birthyear': 'P',
                 'source': 'Q',
                 'interest_form_responses': 'M',
-                'data_entry_data': 'N'
+                'data_entry_data': 'N',
+                'date_claimed':'R'
 }
 
 unrestricted_column_letters = {
@@ -275,6 +277,26 @@ def construct_update_dictionary(worksheet: list):
 
     return sheet_dict
 
+
+def mark_as_claimed(hq_row: list, idx: int, hq_worksheet):
+    """
+    If a contact originally arrived in Hub HQ from the national database, but then enters the system again via one of 
+    the hub's data sources, they need to be marked so that they may be subscribed to the hub's EveryAction committee. 
+    This function checks whether a contact originally came to HQ froma the national list but then was 'claimed' by a hub
+    then records the date they were claimed in Hub Hq so that they are synced into EveryAction. 
+    :param hq_row: the Hub HQ row that corresponds to this contacts
+    :param idx: the row number of this hub member in the hub hq table
+    :param hq_worksheet: hub's hq worksheet (gspread class)
+    :return: None
+    """
+    source = hq_row[hq_columns['source']]
+    date_claimed = hq_row[hq_columns['date_claimed']]
+    if source == 'National Email List' and len(date_claimed) == 0:
+        now = datetime.datetime.now(timezone.utc)
+        now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
+        cell = hq_column_letters['date_claimed'] + str(idx + 3)
+        hq_worksheet.update_acell(cell, now_str)
+
 def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_sheet, hub: dict):
     """
     Updates concatenated forms response/data entry column in HQ by sending concatenated form response values from
@@ -291,7 +313,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_shee
     updates = []
     # For each row in the hub_hq, if the contact is in the form data, then update the appropriate fields/items,
     # otherwise, pass
-    for hq_row in hq:
+    for idx, hq_row in enumerate(hq):
         hq_email = hq_row[hq_columns['email']]
         concat_col_idx = signup_columns['birthyear'] + 1
         # Update Hub HQ records that have a match in the retrieved form data and remove from the form dictionary
@@ -300,6 +322,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_shee
             sheet_dict[hq_email]
             responses = [sheet_dict[hq_email][concat_col_idx]]
             updates.append(responses)
+            mark_as_claimed(hq_row, idx, hq_worksheet)
             del sheet_dict[hq_email]
         # When no match is found, create a list/row with empty values
         except KeyError:
