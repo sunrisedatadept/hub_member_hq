@@ -96,7 +96,8 @@ hq_columns = {
                 'birthyear': 15,
                 'source': 16,
                 'interest_form_responses': 12,
-                'data_entry_data': 13
+                'data_entry_data': 13,
+                'date_claimed':17
 }
 
 
@@ -117,7 +118,8 @@ hq_column_letters = {
                 'birthyear': 'P',
                 'source': 'Q',
                 'interest_form_responses': 'M',
-                'data_entry_data': 'N'
+                'data_entry_data': 'N',
+                'date_claimed':'R'
 }
 
 # Store as list too
@@ -306,6 +308,26 @@ def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inact
         status = 'error (plz contact hub-hq-help@sunrisemovement.org)'
     return status
 
+
+def mark_as_claimed(hq_row: list, idx: int, hq_worksheet):
+    """
+    If a contact originally arrived in Hub HQ from the national database, but then enters the system again via one of
+    the hub's data sources, they need to be marked so that they may be subscribed to the hub's EveryAction committee.
+    This function checks whether a contact originally came to HQ froma the national list but then was 'claimed' by a hub
+    then records the date they were claimed in Hub Hq so that they are synced into EveryAction.
+    :param hq_row: the Hub HQ row that corresponds to this contacts
+    :param idx: the row number of this hub member in the hub hq table
+    :param hq_worksheet: hub's hq worksheet (gspread class)
+    :return: None
+    """
+    source = hq_row[hq_columns['source']]
+    date_claimed = hq_row[hq_columns['date_claimed']]
+    if source == 'National Email List' and len(date_claimed) == 0:
+        now = datetime.datetime.now(timezone.utc)
+        now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
+        cell = hq_column_letters['date_claimed'] + str(idx + 4)
+        hq_worksheet.update_acell(cell, now_str)
+
 def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: dict, event_threshold: int,
                      inactivity_threshold: int):
     """
@@ -332,7 +354,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     event_attendance_updates = []
     # For each row in the hub_hq, if the email is in the mobilize data, then update the appropriate fields/items,
     # otherwise,append a list of blank values
-    for hq_row in hq:
+    for idx, hq_row in enumerate(hq):
         # Assign the email, total_signups, datejoined value for each row to an object for readability
         hq_email = hq_row[hq_columns['email']]
         # Update Hub HQ records that have a match in the retrieved mobilize data and remove from the mobilize data
@@ -350,6 +372,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
             update_row = hq_row[hq_columns['status']:hq_columns['interest_form_responses']]
             # Add to the update list of lists
             event_attendance_updates.append(update_row)
+            # If the contact was originally from the national database but has been claimed by the hub
+            mark_as_claimed(hq_row, idx, hq_worksheet)
             # Remove contact from mobilize parson's table dictionary, which will be appended to Hub HQ sheet
             del mobilize_dict[hq_email]
         # When no match is found, create a list/row with empty values/just retain the value on record (which are empty)
