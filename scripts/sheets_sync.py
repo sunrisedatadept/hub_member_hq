@@ -118,7 +118,7 @@ hq_column_letters = {
                 'source': 'Q',
                 'interest_form_responses': 'M',
                 'data_entry_data': 'N',
-                'date_claimed':'R'
+                'date_claimed': 'R'
 }
 
 unrestricted_column_letters = {
