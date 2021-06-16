@@ -322,6 +322,7 @@ def hq_updates(sheet_dict: dict, hq, sheet: str, hq_worksheet, unrestricted_shee
             sheet_dict[hq_email]
             responses = [sheet_dict[hq_email][concat_col_idx]]
             updates.append(responses)
+            # If contact originated from ntl, added a claimed by hub date
             mark_as_claimed(hq_row, idx, hq_worksheet)
             del sheet_dict[hq_email]
         # When no match is found, create a list/row with empty values
