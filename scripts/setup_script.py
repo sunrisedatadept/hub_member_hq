@@ -431,7 +431,7 @@ def main():
         # Now protect ranges so that hubs don't mess up the sync editing those ranges
         protect_range(hub, 'Interest Form','A:Y')
         protect_range(hub, 'Data Entry', 'A1:G2')
-        protect_range(hub, 'Hub HQ', 'A:O')
+        protect_range(hub, 'Hub HQ', 'A:R')
         protect_range(hub, 'Analytics Dashboard', 'A:Y')
         protect_range(hub, 'Explainer Docs', 'A:Q')
         protect_range(hub, 'HQ Settings', 'A1:F3')
