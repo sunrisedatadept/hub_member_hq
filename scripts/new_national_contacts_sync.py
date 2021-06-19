@@ -92,6 +92,25 @@ sheet_columns = {
     'email': 5,
     'phone': 6
 }
+
+hq_columns_list = ['first_name',
+                    'last_name',
+                    'email',
+                    'phone',
+                    'status',
+                    'date_joined',
+                    'total_signups',
+                    'total_attendances',
+                    'first_signup',
+                    'first_attendance',
+                    'days_since_last_signup',
+                    'days_since_last_attendance',
+                    'interest_form_responses',
+                    'data_entry_data',
+                    'zipcode',
+                    'birthyear',
+                    'source']
+
 # Get scheduled spreadsheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Create errors list of lists to populate and push to redshift at the end
@@ -194,7 +213,7 @@ contacts AS (
   		, datecreated as date_joined
   		, firstname AS first
   		, lastname AS last
-  		, DATEDIFF(YEAR, dob, GETDATE()) AS age
+  		, date_part_year(dob::date) AS birthyear
 	FROM sunrise_ea.tsm_tmc_contacts_sm),
 
 -- We also want their emails
@@ -234,23 +253,29 @@ phone AS (
 	WHERE
 		is_most_recent = TRUE
 		AND opt.phoneoptinstatusid IN (1,2)
-		AND committeeid = 80541)
+		AND committeeid = 80541),
 
-SELECT
-  zip.vanid
-  , contacts.first
-  , contacts.last
-  , email.email
-  , phone.phone
-  , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'YYYY-MM-DD hh24:MI:SS') as date_joined
-  , contacts.age
-FROM zip
-LEFT JOIN contacts on contacts.vanid = zip.vanid
-LEFT JOIN email on email.vanid = zip.vanid
-LEFT JOIN phone on phone.vanid = zip.vanid
---WHERE contacts.age > 17
-WHERE email.email IS NOT NULL OR phone.phone IS NOT NULL
-ORDER BY date_joined
+final_base as (
+    SELECT
+        contacts.first as first_name
+      , contacts.last as last_name
+      , email.email
+      , phone.phone
+      , TO_CHAR(CONVERT_TIMEZONE('EST','UTC', zip.datemodified), 'MM/DD/YYYY HH24:MI:SS') as date_joined
+      , contacts.birthyear
+      -- need to dedup by email
+      , row_number() over(partition by email.email order by zip.datemodified desc) = 1 as is_most_recent
+    FROM zip
+    LEFT JOIN contacts on contacts.vanid = zip.vanid
+    LEFT JOIN email on email.vanid = zip.vanid
+    LEFT JOIN phone on phone.vanid = zip.vanid
+    WHERE 
+        -- Since hub_hq relies on email for matching, we can only give them contacts with subscribed email addresses
+        email.email IS NOT NULL 
+        AND date_part_year(current_date) - contacts.birthyear > 17
+    ORDER BY date_joined)
+
+select * from final_base where is_most_recent = TRUE
 '''
 
     # Send query to Redshift
@@ -260,28 +285,7 @@ ORDER BY date_joined
     except Exception as e:
         log_error(e, 'new_national_contacts_sync', 'Issue with redshift query', hq_errors, hub)
         # return table with 0 rows so script continues instead of erroring
-        return Table([['empty']])
-
-
-def find_new_contacts(preexisting_dict: dict, ntl_contacts):
-    """
-    Look for email matches beteen pre-existing HQ contacts Natl EveryAction contacts, and return natl contacts with no
-    match
-    :param preexisting_dict: dictionary of contacts from HQ natl contacts sheet where each key is an email
-    :param ntl_contacts: Parsons table of contacts returned from Natl EA query
-    :return: Parsons table of Natl EA contacts without any email matches in HQ ntl contacts sheet
-    """
-    columns = ntl_contacts.columns
-    new_contacts = []
-    for i in ntl_contacts:
-        # look for match
-        try:
-            preexisting_dict[i['email']]
-        # if no match is found, create list/row for unmatched EA contact
-        except KeyError:
-            new_contact = [i[value] for value in columns]
-            new_contacts.append(new_contact)
-    return new_contacts
+        return
 
 
 
@@ -295,33 +299,37 @@ def main():
         zip_object = zipcode_search(hub)
         if zip_object:
             # Get date created of last contact dumped into hub hq from national database
-            preexisting_worksheet=connect_to_worksheet(hub,'National List Signups')
-            preexisting_rows = preexisting_worksheet.get_all_values()
+            hub_hq = connect_to_worksheet(hub,'Hub HQ')
+            hub_hq_rows = hub_hq.get_all_values()
             # Convert header rows and everything below into parsons table (top two rows of sheets are instructions)
-            preexisting = Table(preexisting_rows[2:])
-            last_one = preexisting.num_rows - 1
-            last_date = preexisting[last_one]['Date Joined']
+            hub_hq_tbl = Table(hub_hq_rows[2:])
+            hq_ntl_contacts = hub_hq_tbl.select_rows(lambda row: row.Source == 'National Email List')
+            last_one = hq_ntl_contacts.num_rows - 1
+            last_date = hq_ntl_contacts[last_one]['Date Joined']
 
             # This is the query used to get contacts from the national database.
             ntl_contacts = query_everyaction(zip_object, last_date, hub)
-            if ntl_contacts.num_rows == 0:
+            if ntl_contacts is None:
                 continue
-
             else:
-                # Create dictionary for pre-existing ntl contacts in HQ
-                preexisting_dict = {i['Email']: i['Date Joined'] for i in
-                                    preexisting}
-                # Get contacts added since last contact in HQ and compare new contacts to pre-existing, return non-matches
-                new_contacts = find_new_contacts(preexisting_dict, ntl_contacts)
+                # Get list of emails that are already in hub hq
+                hub_hq_emails = [row['Email'] for row in hub_hq_tbl]
+                # Get all rows from the list of new national signups that don't exist in hub hq yet
+                new_ntl_contacts = ntl_contacts.select_rows(lambda row: row.email not in hub_hq_emails)
+                # Add source column and status columns and fill values accordingly
+                new_ntl_contacts.add_column('source','National Email List')
+                new_ntl_contacts.add_column('status', 'HOT LEAD')
+                # Remove is_most_recent column
+                new_ntl_contacts.remove_column('is_most_recent')
+                # Put new_ntl_contacts into a table with the same column order as Hub HQ
+                append_tbl = Table([hq_columns_list])
+                append_tbl.concat(new_ntl_contacts)
+
                 # Push new contacts to spreadsheet
                 try:
-                    # Connect to the set up worksheet via gspread
-                    hub_sheet = gspread_client.open_by_key(hub['spreadsheet_id'])
-                    # Connect to worksheet
-                    national_contacts_worksheet = hub_sheet.worksheet('National List Signups')
-                    # Post new contacts by updating range without contacts
-                    update_range = f'''A{preexisting.num_rows + 4}:G'''
-                    national_contacts_worksheet.update(update_range, new_contacts)
+                    parsons_sheets.append_to_sheet(hub['spreadsheet_id'], append_tbl, 'Hub HQ')
+                except ValueError:
+                    logger.info(f'''No new ntl contacts in {hub['hub_name']} hub\'s area''')
                 except Exception as e:
                     log_error(e, 'new_national_contacts_sync', 'Error appending contacts to sheet', hq_errors, hub)
                     continue
