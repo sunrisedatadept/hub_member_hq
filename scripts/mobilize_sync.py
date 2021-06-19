@@ -96,7 +96,8 @@ hq_columns = {
                 'birthyear': 15,
                 'source': 16,
                 'interest_form_responses': 12,
-                'data_entry_data': 13
+                'data_entry_data': 13,
+                'date_claimed':17
 }
 
 
@@ -117,7 +118,8 @@ hq_column_letters = {
                 'birthyear': 'P',
                 'source': 'Q',
                 'interest_form_responses': 'M',
-                'data_entry_data': 'N'
+                'data_entry_data': 'N',
+                'date_claimed':'R'
 }
 
 # Store as list too
@@ -273,15 +275,19 @@ def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inact
     :return: a string with the person's status
     """
     # Assign the email, total_signups, datejoined value for each row to an object for readability
-
     hq_email = hq_row[hq_columns['email']]
     hq_datejoined = hq_row[hq_columns['date_joined']]
     now = datetime.datetime.now(timezone.utc)
     sevendays = datetime.timedelta(days=7)
     inactivity_threshold_delta = datetime.timedelta(days=inactivity_threshold)
     sixtydays = datetime.timedelta(days=60)
-    total_signups = mobilize_dict[hq_email]['total_signups']
-    days_since_last_signup = mobilize_dict[hq_email]['days_since_last_signup']
+    try:
+        # Some hq records will not be in the mobilize dict, so give them 0 total signups and
+        total_signups = mobilize_dict[hq_email]['total_signups']
+        days_since_last_signup = mobilize_dict[hq_email]['days_since_last_signup']
+    except KeyError:
+        total_signups = 0
+        days_since_last_signup = None
     # Assign status based on event sign up metrics
     # Start by getting date joined from HQ
     date_joined = datetime.datetime.strptime(hq_datejoined[:19] + ' +00:00',
@@ -301,6 +307,26 @@ def assign_status(hq_row: list, mobilize_dict: dict, event_threshold: int, inact
     else:
         status = 'error (plz contact hub-hq-help@sunrisemovement.org)'
     return status
+
+
+def mark_as_claimed(hq_row: list, idx: int, hq_worksheet):
+    """
+    If a contact originally arrived in Hub HQ from the national database, but then enters the system again via one of
+    the hub's data sources, they need to be marked so that they may be subscribed to the hub's EveryAction committee.
+    This function checks whether a contact originally came to HQ froma the national list but then was 'claimed' by a hub
+    then records the date they were claimed in Hub Hq so that they are synced into EveryAction.
+    :param hq_row: the Hub HQ row that corresponds to this contacts
+    :param idx: the row number of this hub member in the hub hq table
+    :param hq_worksheet: hub's hq worksheet (gspread class)
+    :return: None
+    """
+    source = hq_row[hq_columns['source']]
+    date_claimed = hq_row[hq_columns['date_claimed']]
+    if source == 'National Email List' and len(date_claimed) == 0:
+        now = datetime.datetime.now(timezone.utc)
+        now_str = datetime.datetime.strftime(now, '%m/%d/%Y %H:%M:%S')
+        cell = hq_column_letters['date_claimed'] + str(idx + 4)
+        hq_worksheet.update_acell(cell, now_str)
 
 def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: dict, event_threshold: int,
                      inactivity_threshold: int):
@@ -328,7 +354,7 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     event_attendance_updates = []
     # For each row in the hub_hq, if the email is in the mobilize data, then update the appropriate fields/items,
     # otherwise,append a list of blank values
-    for hq_row in hq:
+    for idx, hq_row in enumerate(hq):
         # Assign the email, total_signups, datejoined value for each row to an object for readability
         hq_email = hq_row[hq_columns['email']]
         # Update Hub HQ records that have a match in the retrieved mobilize data and remove from the mobilize data
@@ -346,6 +372,8 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
             update_row = hq_row[hq_columns['status']:hq_columns['interest_form_responses']]
             # Add to the update list of lists
             event_attendance_updates.append(update_row)
+            # If the contact was originally from the national database but has been claimed by the hub
+            mark_as_claimed(hq_row, idx, hq_worksheet)
             # Remove contact from mobilize parson's table dictionary, which will be appended to Hub HQ sheet
             del mobilize_dict[hq_email]
         # When no match is found, create a list/row with empty values/just retain the value on record (which are empty)
@@ -362,20 +390,25 @@ def mobilize_updates(mobilize_dict: dict, hq: list, hq_worksheet, hq_columns: di
     # table so that we can append them to the google sheet using the parson's google sheet append method. We also add a
     # value of 'Mobilize' for the source column
 
-    # Convert remainder of mobilize dictionary rows to lists, which will be converted to a parsons table
-    # create list of lists
-    hq_columns_wo_status = (hq_columns_list[hq_columns['first_name']:hq_columns['status']] +
-                            hq_columns_list[hq_columns['date_joined']:hq_columns['interest_form_responses']])
-    mobilize_data_append = [[mobilize_dict[i][value] for value in hq_columns_wo_status] for i in mobilize_dict]
-    # insert column headers
-    mobilize_data_append.insert(0,hq_columns_wo_status)
-    # convert to parsons table
-    mobilize_parsons_append = Table(mobilize_data_append)
-    # Add column for status and assign value HOT LEAD since this script is running everyday and only people who just
-    # signed up for their first event will be in this append table. The updates section of the script will update their
-    # status in the future
-    mobilize_parsons_append.add_column('status','HOT LEAD',4)
-    return mobilize_parsons_append
+    # Start by creating an empty table with all of the column in hub hq. Concatenating the mobilize data to this table
+    # will ensure all of the columns are in the correct order
+    hub_hq_append = Table([hq_columns_list])
+    # Then upack the mobilize_dict into a parsons table. ['row'] will become the column header for a table with a
+    # single column where the values are dictionaries/rows of the parsons table we initially got with our rs query.
+    # But then those dictionaries are unpacked into separate columns
+    array_of_dicts = [[mobilize_dict[email]] for email in mobilize_dict]
+    array_of_dicts.insert(0,['row'])
+    mobilize_append_table = Table(array_of_dicts)
+    mobilize_append_table.unpack_dict('row',prepend=False)
+    # Concatenate the empty table and the mobilize append table
+    hub_hq_append.concat(mobilize_append_table)
+    # Fill the source and status columns and ensure they're in the correct spots (filling it relocates it)
+    hub_hq_append.fill_column('status', 'HOT LEAD')
+    hub_hq_append.move_column('status', hq_columns['status'])
+    hub_hq_append.fill_column('source','Mobilize')
+    hub_hq_append.move_column('source',hq_columns['source'])
+
+    return hub_hq_append
 
 
 
@@ -423,12 +456,6 @@ def main():
                     logger.info(f'''No new mobilize contacts for {hub['hub_name']}''')
                 except Exception as e:
                     log_error(e,'mobilize_script','Error adding new Mobilize contacts',hq_errors, hub)
-                    # response = str(e)
-                    # exception = str(traceback.format_exc())[:999]
-                    # hq_errors.append([str(date.today()), 'mobilize_script', hub['hub_name'],
-                    #                   'Error applying event sign up updates', response[:999], exception])
-                    # logger.info(f'''Error appending new mobilize contacts for {hub['hub_name']}''')
-                    # logger.info(response)
             except Exception as e:
                 log_error(e, 'mobilize_sync', 'Error updating event history',hq_errors, hub)
     if len(hq_errors) > 1:
