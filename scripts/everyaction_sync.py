@@ -5,9 +5,9 @@
 # references is sunrise.hq_ea_sync_control_table. Upsert errors are logged in sunrise.hq_ea_sync_errors and all other
 # errors are logged in Sunrise.hub_hq_errors
 
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Import necessary Packages
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 import json
 import time
 from parsons import GoogleSheets, Redshift, Table, VAN
@@ -21,25 +21,21 @@ import os
 import traceback
 import re
 
-
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Set up logger
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Set up logger
 logger = logging.getLogger(__name__)
 _handler = logging.StreamHandler()
-_formatter = logging.Formatter('{levelname} {message}',style='{')
+_formatter = logging.Formatter('{levelname} {message}', style='{')
 _handler.setFormatter(_formatter)
 logger.addHandler(_handler)
 logger.setLevel('INFO')
 
-
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Load environment
-#-------------------------------------------------------------------------------
-#If running on container, load this env
+# -------------------------------------------------------------------------------
+# If running on container, load this env
 try:
     location = os.environ['CIVIS_RUN_ID']
     # Set environ using civis credentials from container script
@@ -51,9 +47,10 @@ try:
     creds = json.loads(os.environ['GOOGLE_JSON_CRED_PASSWORD'])  # Load JSON credentials
     api_keys = json.loads(os.environ['EVERYACTION_KEYS_PASSWORD'])
 
-#If running locally, load this env
+# If running locally, load this env
 except KeyError:
     from dotenv import load_dotenv
+
     load_dotenv()
     # Load google credentials for parsons
     creds_file = 'service_account.json'  # File path to OAuth2.0 JSON Credentials
@@ -61,11 +58,9 @@ except KeyError:
     api_keys_file = 'api_keys.json'
     api_keys = json.load(open(api_keys_file))
 
-
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Intantiate parsons and gspread classes
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Load redshift and VAN credentials
 rs = Redshift()
 # Instantiate parsons google sheets class
@@ -77,24 +72,21 @@ scope = [
 credentials = ServiceAccountCredentials.from_json_keyfile_dict(creds, scope)
 gspread_client = gspread.authorize(credentials)
 
-
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Set global variables
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Connect to scheduled sheet
 hubs = parsons_sheets.get_worksheet('1ESXwSfjkDrgCRYrAag_SHiKCMIgcd1U3kz47KLNpGeA', 'scheduled')
 # Open errors tables and control table update table
-upsert_errors = [['date', 'hub','first','last','email','phone','zip','error']]
-hq_errors =[['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
+upsert_errors = [['date', 'hub', 'first', 'last', 'email', 'phone', 'zip', 'error']]
+hq_errors = [['date', 'script', 'hub', 'error', 'traceback', 'other_messages']]
 control_table_update = [['hub', 'date_of_ea_sync_success']]
 
 
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Define functions
-#-------------------------------------------------------------------------------
-def log_error(e, script: str, note:str, error_table: list, hub:dict):
+# -------------------------------------------------------------------------------
+def log_error(e, script: str, note: str, error_table: list, hub: dict):
     """
 
     :param e: the exception
@@ -135,40 +127,40 @@ def subscribe_to_ea(new_hq_contacts, van, upsert_errors: list, hub):
     :param hub: dict of hub from scheduled sheet
     :return: None
     """
-    new_hq_contacts.convert_column(['Phone'],lambda x: re.sub("[^0-9]", "", x)[-10:])
-    new_hq_contacts.convert_column(['Zipcode'], lambda x:re.sub("[^0-9]", "", x)[:5])
+    new_hq_contacts.convert_column(['Phone'], lambda x: re.sub("[^0-9]", "", x)[-10:])
+    new_hq_contacts.convert_column(['Zipcode'], lambda x: re.sub("[^0-9]", "", x)[:5])
     for contact in new_hq_contacts:
         if contact['Phone']:
             json_dict = {
-                        'firstName': contact['First Name'],
-                        "lastName": contact['Last Name'],
-                        "emails":
-                            [{"email": contact['Email'],
-                            "isSubscribed":'true'}],
-                        "addresses":
-                            [{"zipOrPostalCode": contact['Zipcode']}],
-                        "phones":
-                            [{"phoneNumber":contact['Phone']}]
-                        }
+                'firstName': contact['First Name'],
+                "lastName": contact['Last Name'],
+                "emails":
+                    [{"email": contact['Email'],
+                      "isSubscribed": 'true'}],
+                "addresses":
+                    [{"zipOrPostalCode": contact['Zipcode']}],
+                "phones":
+                    [{"phoneNumber": contact['Phone']}]
+            }
         else:
             json_dict = {
-                        'firstName': contact['First Name'],
-                        "lastName": contact['Last Name'],
-                        "emails":
-                            [{"email": contact['Email'],
-                            "isSubscribed":'true'}],
-                        "addresses":
-                            [{"zipOrPostalCode": contact['Zipcode']}]
-                        }
+                'firstName': contact['First Name'],
+                "lastName": contact['Last Name'],
+                "emails":
+                    [{"email": contact['Email'],
+                      "isSubscribed": 'true'}],
+                "addresses":
+                    [{"zipOrPostalCode": contact['Zipcode']}]
+            }
 
-        #Except (need to figure out what kind of errors I'll get here)
+        # Except (need to figure out what kind of errors I'll get here)
         try:
             van.upsert_person_json(json_dict)
             time.sleep(.5)
         except Exception as e:
             response = str(e)
-            upsert_errors.append([str(date.today()),hub['hub_name'], contact['First Name'], contact['Last Name'],
-                                 contact['Email'],contact['Phone'], contact['Zipcode'], response])
+            upsert_errors.append([str(date.today()), hub['hub_name'], contact['First Name'], contact['Last Name'],
+                                  contact['Email'], contact['Phone'], contact['Zipcode'], response])
             logger.info(f'''Upsert error for {hub['hub_name']}''')
             logger.info(response)
             logger.info(json_dict)
@@ -190,62 +182,69 @@ GROUP BY hub
     return date_tbl
 
 
-
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Define main
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 def main():
     # get date of most recent successful sync for each hub
     last_successful_sync_tbl = last_successful_syncs()
     # loop through the hubs and take new HQ contacts and post them to hubs committee
     for hub in hubs:
         # connect to hubs EveryAction committee
-        van = VAN(api_key = api_keys[hub['hub_name']], db='EveryAction')
+        van = VAN(api_key=api_keys[hub['hub_name']], db='EveryAction')
         # Get hub's HQ
         hq = get_hq(hub['spreadsheet_id'])
         # Get last time sync succeeded for this hub
         try:
             date_str = last_successful_sync_tbl.select_rows(lambda row: row.hub == hub['hub_name'])
             # Convert string to date time format
-            date_last_sync = datetime.datetime.strptime(date_str[0]['date']+':00', "%Y-%m-%d %H:%M:%S%z")
+            date_last_sync = datetime.datetime.strptime(date_str[0]['date'] + ':00', "%Y-%m-%d %H:%M:%S%z")
             # Subset HQ rows to only include contacts that synced since last successful run
-            new_hq_contacts = hq.select_rows(lambda row: datetime.datetime.strptime(row['Date Joined'][:19] + ' +00:00',
-                                                "%m/%d/%Y %H:%M:%S %z") > date_last_sync)
+            new_hq_contacts = hq.select_rows(lambda row:
+                                             datetime.datetime.strptime(row['Date Joined'][:19] + ' +00:00',
+                                                                        "%m/%d/%Y %H:%M:%S %z")
+                                             > date_last_sync)
+            new_non_ntl_contacts = new_hq_contacts.select_rows(lambda row: row.Source != 'National Email List')
+            # Now get table of contacts who originally entered hq via the national database but have since been claimed
+            # by the hub
+            claimed_by_hub = hq.select_rows(lambda row: len(row.date_claimed) > 0)
+            claimed_recently = claimed_by_hub.select_rows(lambda row:
+                                                          datetime.datetime.strptime(
+                                                              row['date_claimed'][:19] + ' +00:00',
+                                                              "%m/%d/%Y %H:%M:%S %z")
+                                                          > date_last_sync)
         # For hubs who haven't had a sync yet
         except KeyError as e:
-            log_error(e, 'everyaction_sync', 'No record of hub in control table, could be hubs first run', hq_errors, hub)
-            # Upsert all contacts in sheet
-            new_hq_contacts = hq
+            log_error(e, 'everyaction_sync', 'No record of hub in control table, could be hubs first run', hq_errors,
+                      hub)
 
         # Upsert new contacts to EA
-        subscribe_to_ea(new_hq_contacts, van, upsert_errors,hub)
+        subscribe_to_ea(claimed_recently, van, upsert_errors, hub)
+        subscribe_to_ea(new_non_ntl_contacts, van, upsert_errors, hub)
         # get now
         now = datetime.datetime.now(timezone.utc)
-        now_str = datetime.datetime.strftime(now,'%Y-%m-%d %H:%M:%S')
+        now_str = datetime.datetime.strftime(now, '%Y-%m-%d %H:%M:%S')
         # add sync date to control table
-        control_table_update.append([hub['hub_name'],now_str])
+        control_table_update.append([hub['hub_name'], now_str])
 
     rs.copy(Table(control_table_update), 'sunrise.hq_ea_sync_control_table', if_exists='append', distkey='hub',
             sortkey='date_of_ea_sync_success', alter_table=True)
     if len(hq_errors) > 1:
         rs.copy(Table(hq_errors), 'sunrise.hub_hq_errors', if_exists='append', distkey='hub',
-            sortkey='date', alter_table=True)
-        logger.info(f'''{len(hq_errors)-1} errored hubs''')
+                sortkey='date', alter_table=True)
+        logger.info(f'''{len(hq_errors) - 1} errored hubs''')
     else:
         logger.info('Script executed without issue for all hubs')
     if len(upsert_errors) > 1:
         rs.copy(Table(upsert_errors), 'sunrise.hq_ea_sync_errors', if_exists='append', distkey='error',
-            sortkey='date', alter_table=True)
-        logger.info(f'''{len(upsert_errors)-1} errored contacts''')
+                sortkey='date', alter_table=True)
+        logger.info(f'''{len(upsert_errors) - 1} errored contacts''')
     else:
         logger.info(f'''All contacts were subscribed to the correct committees without errors''')
 
 
-
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 # Run main
-#-------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------
 if __name__ == '__main__':
     main()
-
