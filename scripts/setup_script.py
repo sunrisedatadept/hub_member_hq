@@ -384,9 +384,7 @@ def protect_range(hub: dict, sheet: str, range: str):
     # Connect to the worksheet
     worksheet = spreadsheet.worksheet(sheet)
     # Protect the range
-    worksheet.add_protected_range(range,requesting_user_can_edit=True)
-
-
+    worksheet.add_protected_range(range, editor_users_emails=['deptdirectors@sunrisemovement.org'], requesting_user_can_edit=True)
 
 
 
