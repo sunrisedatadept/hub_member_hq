@@ -40,7 +40,7 @@ try:
     os.environ['REDSHIFT_PASSWORD'] = os.environ['REDSHIFT_CREDENTIAL_PASSWORD']
     os.environ['S3_TEMP_BUCKET'] = 'parsons-tmc'
     # Load google credentials for parsons
-    creds = json.dumps(os.environ['GOOGLE_JSON_CRED_PASSWORD'])  # Load JSON credentials
+    creds = json.loads(dumps(os.environ['GOOGLE_JSON_CRED_PASSWORD']))  # Load JSON credentials
 
 #If running locally, load this env
 except KeyError:
